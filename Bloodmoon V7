@@ -1,0 +1,785 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+
+local P = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+--// SETTINGS
+local Target = nil
+local Following = false
+local AutoTarget = false
+local ViewTarget = false
+local TargetAll = false
+
+local FollowDistance = 3
+local AutoPunch = false
+local AutoClick = false
+local AutoInterval = 0.15
+
+local AntiAFK = false
+local AFKTime = 0
+
+local LowGraphics = false
+local OldGraphics = {}
+
+--// GUI
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "BloodMoonV7"
+Gui.ResetOnSpawn = false
+Gui.Parent = P:WaitForChild("PlayerGui")
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.fromOffset(560, 335)
+Main.Position = UDim2.new(.5, -280, .5, -167)
+Main.BackgroundColor3 = Color3.fromRGB(20, 7, 12)
+Main.BackgroundTransparency = .1
+Main.BorderSizePixel = 0
+Main.Parent = Gui
+
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
+
+local Stroke = Instance.new("UIStroke", Main)
+Stroke.Color = Color3.fromRGB(170, 20, 45)
+Stroke.Transparency = .3
+
+--// HEADER
+local Header = Instance.new("Frame", Main)
+Header.Size = UDim2.new(1, 0, 0, 55)
+Header.BackgroundTransparency = 1
+
+local Title = Instance.new("TextLabel", Header)
+Title.Size = UDim2.new(1, -70, 1, 0)
+Title.Position = UDim2.fromOffset(18, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "BLOODMOON V7"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.TextSize = 20
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local Close = Instance.new("TextButton", Header)
+Close.Size = UDim2.fromOffset(38, 38)
+Close.Position = UDim2.new(1, -48, 0, 8)
+Close.BackgroundColor3 = Color3.fromRGB(100, 10, 30)
+Close.Text = "−"
+Close.TextColor3 = Color3.new(1, 1, 1)
+Close.TextSize = 24
+Close.Font = Enum.Font.GothamBold
+
+Instance.new("UICorner", Close).CornerRadius = UDim.new(0, 9)
+
+--// SIDEBAR
+local Side = Instance.new("Frame", Main)
+Side.Size = UDim2.new(0, 135, 1, -70)
+Side.Position = UDim2.fromOffset(10, 60)
+Side.BackgroundColor3 = Color3.fromRGB(30, 10, 18)
+Side.BackgroundTransparency = .15
+Side.BorderSizePixel = 0
+Side.Parent = Main
+
+Instance.new("UICorner", Side).CornerRadius = UDim.new(0, 10)
+
+local Content = Instance.new("Frame", Main)
+Content.Size = UDim2.new(1, -160, 1, -70)
+Content.Position = UDim2.fromOffset(150, 60)
+Content.BackgroundTransparency = 1
+Content.Parent = Main
+
+--// TAB
+local function Tab(text, y, active)
+    local b = Instance.new("TextButton", Side)
+
+    b.Size = UDim2.new(1, -16, 0, 40)
+    b.Position = UDim2.fromOffset(8, y)
+
+    b.BackgroundColor3 =
+        active
+        and Color3.fromRGB(120, 15, 35)
+        or Color3.fromRGB(45, 15, 25)
+
+    b.BackgroundTransparency = active and 0 or .5
+    b.BorderSizePixel = 0
+    b.Text = text
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.TextSize = 14
+    b.Font = Enum.Font.GothamMedium
+
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+
+    return b
+end
+
+local FT = Tab("Follow", 10, true)
+local TT = Tab("Teleport", 55, false)
+local KT = Tab("Kill", 100, false)
+local MT = Tab("Misc", 145, false)
+local ST = Tab("Settings", 190, false)
+
+--// HELPERS
+local function Clear()
+    for _, v in ipairs(Content:GetChildren()) do
+        v:Destroy()
+    end
+end
+
+local function TitlePage(text)
+    local l = Instance.new("TextLabel", Content)
+
+    l.Size = UDim2.new(1, 0, 0, 35)
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.TextColor3 = Color3.new(1, 1, 1)
+    l.TextSize = 20
+    l.Font = Enum.Font.GothamBold
+    l.TextXAlignment = Enum.TextXAlignment.Left
+end
+
+local function Button(text, y)
+    local b = Instance.new("TextButton", Content)
+
+    b.Size = UDim2.new(1, 0, 0, 40)
+    b.Position = UDim2.fromOffset(0, y)
+    b.BackgroundColor3 = Color3.fromRGB(60, 10, 25)
+    b.BorderSizePixel = 0
+    b.Text = text
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.TextSize = 13
+    b.Font = Enum.Font.GothamBold
+
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+
+    return b
+end
+
+local function Box(text, y)
+    local b = Instance.new("TextBox", Content)
+
+    b.Size = UDim2.new(1, 0, 0, 40)
+    b.Position = UDim2.fromOffset(0, y)
+    b.BackgroundColor3 = Color3.fromRGB(40, 12, 22)
+    b.BackgroundTransparency = .15
+    b.BorderSizePixel = 0
+    b.Text = text
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.TextSize = 13
+    b.Font = Enum.Font.Gotham
+
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+
+    return b
+end
+
+local function FindPlayer(name)
+    name = string.lower(name or "")
+
+    if name == "" then
+        return nil
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if string.lower(player.Name) == name
+        or string.lower(player.DisplayName) == name then
+            return player
+        end
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if string.sub(
+            string.lower(player.Name),
+            1,
+            #name
+        ) == name then
+            return player
+        end
+    end
+
+    return nil
+end
+
+local function FindNearest()
+    local character = P.Character
+    local root = character
+        and character:FindFirstChild("HumanoidRootPart")
+
+    if not root then
+        return nil
+    end
+
+    local nearest
+    local distance = math.huge
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= P then
+
+            local char = player.Character
+            local targetRoot =
+                char and char:FindFirstChild("HumanoidRootPart")
+
+            if targetRoot then
+
+                local d =
+                    (root.Position - targetRoot.Position).Magnitude
+
+                if d < distance then
+                    distance = d
+                    nearest = player
+                end
+            end
+        end
+    end
+
+    return nearest
+end
+
+--// FOLLOW
+local function FollowPage()
+    Clear()
+
+    TitlePage("Follow Options")
+
+    local box = Box("", 40)
+    box.PlaceholderText = "Target Name"
+
+    local dist = Box(tostring(FollowDistance), 85)
+
+    local follow = Button(
+        "FOLLOW : " ..
+        (Following and "ON" or "OFF"),
+        130
+    )
+
+    local auto = Button(
+        "AUTO TARGET : " ..
+        (AutoTarget and "ON" or "OFF"),
+        180
+    )
+
+    local status = Instance.new("TextLabel", Content)
+
+    status.Size = UDim2.new(1, 0, 0, 30)
+    status.Position = UDim2.fromOffset(0, 235)
+    status.BackgroundTransparency = 1
+    status.Text =
+        Target and "Target: " .. Target.Name
+        or "No Target"
+
+    status.TextColor3 =
+        Color3.fromRGB(180, 140, 150)
+
+    status.TextSize = 12
+    status.TextXAlignment =
+        Enum.TextXAlignment.Left
+
+    follow.MouseButton1Click:Connect(function()
+
+        if Following then
+
+            Following = false
+            Target = nil
+
+            follow.Text = "FOLLOW : OFF"
+            status.Text = "Stopped"
+
+        else
+
+            local player =
+                FindPlayer(box.Text)
+
+            if player then
+
+                Target = player
+                Following = true
+
+                follow.Text = "FOLLOW : ON"
+                status.Text =
+                    "Following: " ..
+                    player.Name
+
+            else
+                status.Text = "Target Not Found"
+            end
+        end
+    end)
+
+    auto.MouseButton1Click:Connect(function()
+
+        AutoTarget = not AutoTarget
+
+        auto.Text =
+            "AUTO TARGET : " ..
+            (AutoTarget and "ON" or "OFF")
+
+        if AutoTarget then
+            Following = true
+            status.Text =
+                "Finding nearest player..."
+        else
+            Following = false
+            Target = nil
+            status.Text =
+                "Auto Target stopped"
+        end
+    end)
+
+    dist.FocusLost:Connect(function()
+
+        FollowDistance =
+            math.clamp(
+                tonumber(dist.Text) or 3,
+                1,
+                50
+            )
+
+        dist.Text =
+            tostring(FollowDistance)
+    end)
+end
+
+--// TELEPORT
+local function TeleportPage()
+    Clear()
+
+    TitlePage("Teleport")
+
+    local box = Box("", 40)
+    box.PlaceholderText = "Player Name"
+
+    local b =
+        Button(
+            "TELEPORT TO PLAYER",
+            90
+        )
+
+    b.MouseButton1Click:Connect(function()
+
+        local target =
+            FindPlayer(box.Text)
+
+        local root =
+            P.Character
+            and P.Character:FindFirstChild(
+                "HumanoidRootPart"
+            )
+
+        local targetRoot =
+            target
+            and target.Character
+            and target.Character:FindFirstChild(
+                "HumanoidRootPart"
+            )
+
+        if root and targetRoot then
+
+            root.CFrame =
+                targetRoot.CFrame *
+                CFrame.new(0, 0, 3)
+        end
+    end)
+end
+
+--// KILL / TARGET PAGE
+local function KillPage()
+    Clear()
+
+    TitlePage("Kill / Target")
+
+    local box = Box("", 40)
+    box.PlaceholderText = "Target Name"
+
+    local targetButton =
+        Button(
+            "TARGET : " ..
+            (Target and "ON" or "OFF"),
+            85
+        )
+
+    local allButton =
+        Button(
+            "TARGET ALL : " ..
+            (TargetAll and "ON" or "OFF"),
+            135
+        )
+
+    local viewButton =
+        Button(
+            "VIEW TARGET : " ..
+            (ViewTarget and "ON" or "OFF"),
+            185
+        )
+
+    local stopButton =
+        Button("STOP VIEW", 235)
+
+    targetButton.MouseButton1Click:Connect(function()
+
+        local player =
+            FindPlayer(box.Text)
+
+        if player then
+            Target = player
+            Following = true
+
+            targetButton.Text =
+                "TARGET : ON"
+        end
+    end)
+
+    allButton.MouseButton1Click:Connect(function()
+
+        TargetAll = not TargetAll
+
+        allButton.Text =
+            "TARGET ALL : " ..
+            (TargetAll and "ON" or "OFF")
+
+        if TargetAll then
+            Target = FindNearest()
+        end
+    end)
+
+    viewButton.MouseButton1Click:Connect(function()
+
+        if Target then
+            ViewTarget = not ViewTarget
+
+            viewButton.Text =
+                "VIEW TARGET : " ..
+                (ViewTarget and "ON" or "OFF")
+        end
+    end)
+
+    stopButton.MouseButton1Click:Connect(function()
+
+        ViewTarget = false
+
+        local character = P.Character
+        local humanoid =
+            character and character:FindFirstChildOfClass(
+                "Humanoid"
+            )
+
+        if humanoid then
+            Camera.CameraSubject = humanoid
+        end
+
+        viewButton.Text = "VIEW TARGET : OFF"
+    end)
+end
+
+--// MISC
+local function MiscPage()
+    Clear()
+
+    TitlePage("Misc")
+
+    local afk =
+        Button(
+            "ANTI AFK : " ..
+            (AntiAFK and "ON" or "OFF"),
+            40
+        )
+
+    afk.MouseButton1Click:Connect(function()
+
+        AntiAFK = not AntiAFK
+
+        if AntiAFK then
+            AFKTime = 0
+        end
+
+        afk.Text =
+            "ANTI AFK : " ..
+            (AntiAFK and "ON" or "OFF")
+    end)
+
+    local lag =
+        Button(
+            "FIX LAG : " ..
+            (LowGraphics and "ON" or "OFF"),
+            90
+        )
+
+    lag.MouseButton1Click:Connect(function()
+
+        LowGraphics = not LowGraphics
+
+        lag.Text =
+            "FIX LAG : " ..
+            (LowGraphics and "ON" or "OFF")
+
+        for _, v in ipairs(
+            workspace:GetDescendants()
+        ) do
+
+            if v:IsA("ParticleEmitter")
+            or v:IsA("Trail")
+            or v:IsA("Beam") then
+
+                v.Enabled =
+                    not LowGraphics
+
+            elseif v:IsA("BasePart")
+            and LowGraphics then
+
+                if not OldGraphics[v] then
+                    OldGraphics[v] = v.Material
+                end
+
+                v.Material =
+                    Enum.Material.SmoothPlastic
+
+            elseif v:IsA("BasePart")
+            and not LowGraphics
+            and OldGraphics[v] then
+
+                v.Material =
+                    OldGraphics[v]
+            end
+        end
+    end)
+end
+
+--// SETTINGS
+local function SettingsPage()
+    Clear()
+
+    TitlePage("Settings")
+
+    local punch =
+        Button(
+            "AUTO PUNCH : " ..
+            (AutoPunch and "ON" or "OFF"),
+            40
+        )
+
+    local click =
+        Button(
+            "AUTO CLICK : " ..
+            (AutoClick and "ON" or "OFF"),
+            90
+        )
+
+    local int =
+        Box(
+            tostring(AutoInterval),
+            140
+        )
+
+    punch.MouseButton1Click:Connect(function()
+
+        AutoPunch = not AutoPunch
+
+        punch.Text =
+            "AUTO PUNCH : " ..
+            (AutoPunch and "ON" or "OFF")
+    end)
+
+    click.MouseButton1Click:Connect(function()
+
+        AutoClick = not AutoClick
+
+        click.Text =
+            "AUTO CLICK : " ..
+            (AutoClick and "ON" or "OFF")
+    end)
+
+    int.FocusLost:Connect(function()
+
+        AutoInterval =
+            math.clamp(
+                tonumber(int.Text) or .15,
+                .05,
+                2
+            )
+
+        int.Text =
+            tostring(AutoInterval)
+    end)
+end
+
+--// TABS
+FT.MouseButton1Click:Connect(FollowPage)
+TT.MouseButton1Click:Connect(TeleportPage)
+KT.MouseButton1Click:Connect(KillPage)
+MT.MouseButton1Click:Connect(MiscPage)
+ST.MouseButton1Click:Connect(SettingsPage)
+
+--// MINIMIZE
+local Eye = Instance.new("ImageButton", Gui)
+
+Eye.Size = UDim2.fromOffset(65, 65)
+Eye.Position = UDim2.fromOffset(15, 150)
+
+Eye.BackgroundColor3 =
+    Color3.fromRGB(65, 5, 20)
+
+Eye.Image =
+    "rbxassetid://132069877725400"
+
+Eye.Visible = false
+
+Instance.new("UICorner", Eye).CornerRadius =
+    UDim.new(1, 0)
+
+Close.MouseButton1Click:Connect(function()
+    Main.Visible = false
+    Eye.Visible = true
+end)
+
+Eye.MouseButton1Click:Connect(function()
+    Main.Visible = true
+    Eye.Visible = false
+end)
+
+--// DRAG
+local dragging = false
+local start
+local startPos
+
+Header.InputBegan:Connect(function(input)
+
+    if input.UserInputType ==
+        Enum.UserInputType.MouseButton1
+    or input.UserInputType ==
+        Enum.UserInputType.Touch then
+
+        dragging = true
+        start = input.Position
+        startPos = Main.Position
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+
+    if dragging
+    and (
+        input.UserInputType ==
+            Enum.UserInputType.MouseMovement
+        or input.UserInputType ==
+            Enum.UserInputType.Touch
+    ) then
+
+        local delta =
+            input.Position - start
+
+        Main.Position =
+            UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+
+    if input.UserInputType ==
+        Enum.UserInputType.MouseButton1
+    or input.UserInputType ==
+        Enum.UserInputType.Touch then
+
+        dragging = false
+    end
+end)
+
+--// FOLLOW + VIEW LOOP
+RunService.RenderStepped:Connect(function()
+
+    -- Auto target
+    if AutoTarget then
+
+        if not Target
+        or not Target.Parent
+        or not Target.Character
+        or not Target.Character:FindFirstChild(
+            "HumanoidRootPart"
+        ) then
+
+            Target = FindNearest()
+        end
+    end
+
+    -- Follow
+    if Following and Target then
+
+        local root =
+            P.Character
+            and P.Character:FindFirstChild(
+                "HumanoidRootPart"
+            )
+
+        local targetRoot =
+            Target.Character
+            and Target.Character:FindFirstChild(
+                "HumanoidRootPart"
+            )
+
+        if root and targetRoot then
+
+            root.CFrame =
+                targetRoot.CFrame *
+                CFrame.new(
+                    0,
+                    0,
+                    FollowDistance
+                )
+        end
+    end
+
+    -- View target
+    if ViewTarget and Target then
+
+        local targetCharacter =
+            Target.Character
+
+        local humanoid =
+            targetCharacter
+            and targetCharacter:FindFirstChildOfClass(
+                "Humanoid"
+            )
+
+        if humanoid then
+            Camera.CameraSubject = humanoid
+        end
+    end
+end)
+
+--// AFK TIMER
+task.spawn(function()
+
+    while task.wait(1) do
+
+        if AntiAFK then
+            AFKTime += 1
+        end
+    end
+end)
+
+--// TOOL LOOP
+task.spawn(function()
+
+    while task.wait(AutoInterval) do
+
+        if AutoPunch or AutoClick then
+
+            local character = P.Character
+
+            local tool =
+                character
+                and character:FindFirstChildOfClass(
+                    "Tool"
+                )
+
+            if tool then
+                pcall(function()
+                    tool:Activate()
+                end)
+            end
+        end
+    end
+end)
+
+--// START
+FollowPage()
