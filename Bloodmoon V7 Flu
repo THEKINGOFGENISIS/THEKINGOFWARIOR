@@ -1,0 +1,3223 @@
+--//======================================================
+--// BLOODMOON V7
+--// MOBILE LIBRARY DRAG FIX
+--// MAIN + FOLLOW + FARM + TELEPORT + KILL
+--// MISC + MUSIC + SETTINGS
+--// DASH + SHIFT LOCK + FAST ANIMATION
+--// ANTI AFK TIMER + HIDE STATS
+--// BOOST FPS + FIX LAG
+--// HIDE STATS FIXED V7
+--//======================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local VirtualUser = game:GetService("VirtualUser")
+local Lighting = game:GetService("Lighting")
+local Stats = game:GetService("Stats")
+
+local P = Players.LocalPlayer
+local PlayerGui = P:WaitForChild("PlayerGui")
+
+--======================================================
+-- SETTINGS
+--======================================================
+
+local Target = nil
+local Following = false
+local AutoTarget = false
+local TargetAll = false
+local ViewTarget = false
+
+local FollowDistance = 3
+
+local AutoPunch = false
+local AutoClick = false
+local AutoInterval = 0.15
+
+local AntiAFK = false
+local AFKTime = 0
+
+local HideStats = false
+
+local LowGraphics = false
+local BoostFPS = false
+
+local OldGraphics = {}
+local OldLighting = {}
+
+local SelectedTool = nil
+local AutoFarm = false
+local FarmRunning = false
+
+local FastAnimation = false
+local FastAnimationSpeed = 2
+
+local InfiniteJump = false
+local LockPosition = false
+local LockedCFrame = nil
+
+local Fly = false
+local FlySpeed = 50
+
+local DashEnabled = false
+local DashDistance = 35
+local DashDuration = 0.20
+local DashCooldown = 0.8
+local DashBusy = false
+
+local ShiftLock = false
+
+local TeleportAnimation = true
+local TeleportBusy = false
+
+local MusicId = ""
+local MusicVolume = 0.5
+local MusicLoop = false
+local MusicPlaying = false
+local RandomMusic = false
+local MusicList = {}
+
+local FarmTools = {
+    "Weight",
+    "Pushups",
+    "Situps",
+    "Handstands",
+    "Fast Punch",
+    "Stomp",
+    "Ground Slam"
+}
+
+local RED = Color3.fromRGB(220,15,45)
+local LIGHT_RED = Color3.fromRGB(255,70,90)
+local DARK_RED = Color3.fromRGB(65,5,20)
+
+--======================================================
+-- REMOVE OLD
+--======================================================
+
+pcall(function()
+
+    for _, name in ipairs({
+        "BloodMoonV7",
+        "BloodMoonTeleportFX",
+        "BloodMoonDash",
+        "BloodMoonMusic"
+    }) do
+
+        local old = PlayerGui:FindFirstChild(name)
+
+        if old then
+            old:Destroy()
+        end
+
+    end
+
+end)
+
+--======================================================
+-- MUSIC
+--======================================================
+
+local Music = Instance.new("Sound")
+Music.Name = "BloodMoonMusic"
+Music.Volume = MusicVolume
+Music.Looped = false
+Music.Parent = PlayerGui
+
+--======================================================
+-- MAIN GUI
+--======================================================
+
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "BloodMoonV7"
+Gui.ResetOnSpawn = false
+Gui.IgnoreGuiInset = true
+Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Gui.Parent = PlayerGui
+
+local Main = Instance.new("Frame")
+Main.Name = "Library"
+Main.Size = UDim2.fromOffset(560,390)
+Main.Position = UDim2.new(0.5,-280,0.5,-195)
+Main.BackgroundColor3 = Color3.fromRGB(20,7,12)
+Main.BackgroundTransparency = 0.04
+Main.BorderSizePixel = 0
+Main.Parent = Gui
+
+Instance.new("UICorner",Main).CornerRadius =
+    UDim.new(0,12)
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = RED
+MainStroke.Thickness = 1.5
+MainStroke.Parent = Main
+
+--======================================================
+-- HEADER
+--======================================================
+
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Size = UDim2.new(1,0,0,55)
+Header.BackgroundTransparency = 1
+Header.BorderSizePixel = 0
+Header.Parent = Main
+
+--======================================================
+-- LIBRARY DRAG BAR
+--======================================================
+
+local DragBar = Instance.new("Frame")
+DragBar.Name = "LibraryDragBar"
+DragBar.Size = UDim2.new(1,-58,1,0)
+DragBar.Position = UDim2.fromOffset(0,0)
+DragBar.BackgroundTransparency = 1
+DragBar.Active = true
+DragBar.ZIndex = 50
+DragBar.Parent = Header
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,-20,1,0)
+Title.Position = UDim2.fromOffset(18,0)
+Title.BackgroundTransparency = 1
+Title.Text = "BLOODMOON V7"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.TextSize = 20
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.ZIndex = 51
+Title.Parent = DragBar
+
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.fromOffset(38,38)
+Close.Position = UDim2.new(1,-48,0,8)
+Close.BackgroundColor3 = Color3.fromRGB(100,10,30)
+Close.BorderSizePixel = 0
+Close.Text = "−"
+Close.TextColor3 = Color3.new(1,1,1)
+Close.TextSize = 24
+Close.Font = Enum.Font.GothamBold
+Close.ZIndex = 60
+Close.Parent = Header
+
+Instance.new("UICorner",Close).CornerRadius =
+    UDim.new(0,9)
+
+--======================================================
+-- SIDEBAR
+--======================================================
+
+local Side = Instance.new("ScrollingFrame")
+Side.Name = "Tabs"
+Side.Size = UDim2.new(0,135,1,-70)
+Side.Position = UDim2.fromOffset(10,60)
+Side.BackgroundColor3 = Color3.fromRGB(30,10,18)
+Side.BackgroundTransparency = 0.15
+Side.BorderSizePixel = 0
+Side.ScrollBarThickness = 3
+Side.ScrollBarImageColor3 = RED
+Side.CanvasSize = UDim2.fromOffset(0,370)
+Side.ScrollingDirection = Enum.ScrollingDirection.Y
+Side.Active = true
+Side.ZIndex = 5
+Side.Parent = Main
+
+Instance.new("UICorner",Side).CornerRadius =
+    UDim.new(0,10)
+
+--======================================================
+-- CONTENT
+--======================================================
+
+local Content = Instance.new("ScrollingFrame")
+Content.Name = "Content"
+Content.Size = UDim2.new(1,-160,1,-70)
+Content.Position = UDim2.fromOffset(150,60)
+Content.BackgroundTransparency = 1
+Content.BorderSizePixel = 0
+Content.ScrollBarThickness = 4
+Content.ScrollBarImageColor3 = RED
+Content.ScrollingDirection = Enum.ScrollingDirection.Y
+Content.Active = true
+Content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Content.CanvasSize = UDim2.fromOffset(0,0)
+Content.ZIndex = 5
+Content.Parent = Main
+
+--======================================================
+-- DRAG SYSTEM
+--======================================================
+
+local dragging = false
+local dragStart = nil
+local startPosition = nil
+local activeInput = nil
+
+local function BeginDrag(input)
+
+    if not Main.Visible then
+        return
+    end
+
+    dragging = true
+    activeInput = input
+    dragStart = input.Position
+    startPosition = Main.Position
+
+end
+
+local function UpdateDrag(input)
+
+    if not dragging then
+        return
+    end
+
+    if activeInput ~= input then
+        return
+    end
+
+    local camera = workspace.CurrentCamera
+
+    if not camera then
+        return
+    end
+
+    local delta = input.Position - dragStart
+    local viewport = camera.ViewportSize
+
+    local width = Main.AbsoluteSize.X
+    local height = Main.AbsoluteSize.Y
+
+    local x =
+        startPosition.X.Offset + delta.X
+
+    local y =
+        startPosition.Y.Offset + delta.Y
+
+    local minX = -(width - 80)
+    local maxX = viewport.X - 80
+
+    local minY = 0
+    local maxY = viewport.Y - 55
+
+    x = math.clamp(x,minX,maxX)
+    y = math.clamp(y,minY,maxY)
+
+    Main.Position = UDim2.new(
+        0,x,
+        0,y
+    )
+
+end
+
+local function EndDrag(input)
+
+    if
+        input.UserInputType ==
+            Enum.UserInputType.Touch
+        or
+        input.UserInputType ==
+            Enum.UserInputType.MouseButton1
+    then
+
+        dragging = false
+        activeInput = nil
+        dragStart = nil
+        startPosition = nil
+
+    end
+
+end
+
+DragBar.InputBegan:Connect(function(input)
+
+    if
+        input.UserInputType ==
+            Enum.UserInputType.Touch
+        or
+        input.UserInputType ==
+            Enum.UserInputType.MouseButton1
+    then
+
+        BeginDrag(input)
+
+    end
+
+end)
+
+UIS.TouchMoved:Connect(function(input)
+
+    if dragging then
+        UpdateDrag(input)
+    end
+
+end)
+
+UIS.InputChanged:Connect(function(input)
+
+    if
+        dragging
+        and
+        input.UserInputType ==
+            Enum.UserInputType.MouseMovement
+    then
+
+        UpdateDrag(input)
+
+    end
+
+end)
+
+UIS.InputEnded:Connect(function(input)
+
+    EndDrag(input)
+
+end)
+
+--======================================================
+-- KEEP LIBRARY ON SCREEN
+--======================================================
+
+local function ClampLibrary()
+
+    local camera = workspace.CurrentCamera
+
+    if not camera then
+        return
+    end
+
+    local viewport = camera.ViewportSize
+    local size = Main.AbsoluteSize
+
+    local x = math.clamp(
+        Main.Position.X.Offset,
+        -(size.X-80),
+        viewport.X-80
+    )
+
+    local y = math.clamp(
+        Main.Position.Y.Offset,
+        0,
+        viewport.Y-55
+    )
+
+    Main.Position = UDim2.new(
+        0,x,
+        0,y
+    )
+
+end
+
+workspace.CurrentCamera:
+    GetPropertyChangedSignal("ViewportSize"):
+    Connect(function()
+
+        task.defer(ClampLibrary)
+
+    end)
+
+--======================================================
+-- HELPERS
+--======================================================
+
+local function Clear()
+
+    for _,v in ipairs(Content:GetChildren()) do
+        v:Destroy()
+    end
+
+end
+
+local function TitlePage(text)
+
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1,-8,0,35)
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.TextColor3 = Color3.new(1,1,1)
+    l.TextSize = 20
+    l.Font = Enum.Font.GothamBold
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.Parent = Content
+
+    return l
+
+end
+
+local function Button(text,y)
+
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1,-8,0,40)
+    b.Position = UDim2.fromOffset(0,y)
+    b.BackgroundColor3 = DARK_RED
+    b.BorderSizePixel = 0
+    b.Text = text
+    b.TextColor3 = Color3.new(1,1,1)
+    b.TextSize = 13
+    b.Font = Enum.Font.GothamBold
+    b.AutoButtonColor = true
+    b.Parent = Content
+
+    Instance.new("UICorner",b).CornerRadius =
+        UDim.new(0,8)
+
+    return b
+
+end
+
+local function Box(text,y)
+
+    local b = Instance.new("TextBox")
+    b.Size = UDim2.new(1,-8,0,40)
+    b.Position = UDim2.fromOffset(0,y)
+    b.BackgroundColor3 = Color3.fromRGB(40,12,22)
+    b.BackgroundTransparency = 0.15
+    b.BorderSizePixel = 0
+    b.Text = text
+    b.TextColor3 = Color3.new(1,1,1)
+    b.PlaceholderColor3 =
+        Color3.fromRGB(150,120,130)
+    b.TextSize = 13
+    b.Font = Enum.Font.Gotham
+    b.ClearTextOnFocus = false
+    b.Parent = Content
+
+    Instance.new("UICorner",b).CornerRadius =
+        UDim.new(0,8)
+
+    return b
+
+end
+
+local function Status(text,y)
+
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(1,-8,0,35)
+    l.Position = UDim2.fromOffset(0,y)
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.TextColor3 =
+        Color3.fromRGB(190,150,160)
+    l.TextSize = 12
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.Parent = Content
+
+    return l
+
+end
+
+local function Tab(text,y)
+
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1,-16,0,40)
+    b.Position = UDim2.fromOffset(8,y)
+    b.BackgroundColor3 =
+        Color3.fromRGB(45,15,25)
+    b.BackgroundTransparency = 0.5
+    b.BorderSizePixel = 0
+    b.Text = text
+    b.TextColor3 = Color3.new(1,1,1)
+    b.TextSize = 13
+    b.Font = Enum.Font.GothamMedium
+    b.ZIndex = 6
+    b.Parent = Side
+
+    Instance.new("UICorner",b).CornerRadius =
+        UDim.new(0,8)
+
+    return b
+
+end
+
+--======================================================
+-- TABS
+--======================================================
+
+local MainT = Tab("Main",10)
+local FollowT = Tab("Follow",55)
+local FarmT = Tab("Farm",100)
+local TeleportT = Tab("Teleport",145)
+local KillT = Tab("Kill",190)
+local MiscT = Tab("Misc",235)
+local MusicT = Tab("Music",280)
+local SettingsT = Tab("Settings",325)
+
+--======================================================
+-- PLAYER FINDER
+--======================================================
+
+local function FindPlayer(name)
+
+    name = string.lower(name or "")
+
+    if name == "" then
+        return nil
+    end
+
+    for _,player in ipairs(Players:GetPlayers()) do
+
+        if
+            string.lower(player.Name) == name
+            or
+            string.lower(player.DisplayName) == name
+        then
+            return player
+        end
+
+    end
+
+    for _,player in ipairs(Players:GetPlayers()) do
+
+        if string.sub(
+            string.lower(player.Name),
+            1,
+            #name
+        ) == name then
+
+            return player
+
+        end
+
+    end
+
+    return nil
+
+end
+
+local function FindNearest()
+
+    local char = P.Character
+    local root =
+        char and char:FindFirstChild("HumanoidRootPart")
+
+    if not root then
+        return nil
+    end
+
+    local nearest = nil
+    local distance = math.huge
+
+    for _,player in ipairs(Players:GetPlayers()) do
+
+        if player ~= P then
+
+            local c = player.Character
+            local r =
+                c and c:FindFirstChild("HumanoidRootPart")
+
+            if r then
+
+                local d =
+                    (root.Position-r.Position).Magnitude
+
+                if d < distance then
+                    distance = d
+                    nearest = player
+                end
+
+            end
+
+        end
+
+    end
+
+    return nearest
+
+end
+
+--======================================================
+-- TELEPORT FX
+--======================================================
+
+local FXGui = Instance.new("ScreenGui")
+FXGui.Name = "BloodMoonTeleportFX"
+FXGui.IgnoreGuiInset = true
+FXGui.ResetOnSpawn = false
+FXGui.DisplayOrder = 999
+FXGui.Parent = PlayerGui
+
+local FXHolder = Instance.new("Frame")
+FXHolder.Size = UDim2.fromScale(1,1)
+FXHolder.BackgroundTransparency = 1
+FXHolder.Parent = FXGui
+
+local function NewRing(size)
+
+    local ring = Instance.new("Frame")
+    ring.AnchorPoint = Vector2.new(.5,.5)
+    ring.Position = UDim2.fromScale(.5,.5)
+    ring.Size = UDim2.fromOffset(size,size)
+    ring.BackgroundTransparency = 1
+    ring.Visible = false
+    ring.Parent = FXHolder
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1,0)
+    corner.Parent = ring
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = RED
+    stroke.Thickness = 4
+    stroke.Parent = ring
+
+    return ring
+
+end
+
+local Ring1 = NewRing(180)
+local Ring2 = NewRing(130)
+local Ring3 = NewRing(80)
+
+local FXText = Instance.new("TextLabel")
+FXText.AnchorPoint = Vector2.new(.5,.5)
+FXText.Position = UDim2.fromScale(.5,.5)
+FXText.Size = UDim2.fromOffset(300,60)
+FXText.BackgroundTransparency = 1
+FXText.Text = "TELEPORT"
+FXText.TextColor3 = LIGHT_RED
+FXText.TextStrokeColor3 =
+    Color3.fromRGB(60,0,10)
+FXText.TextStrokeTransparency = 0
+FXText.TextSize = 24
+FXText.Font = Enum.Font.GothamBold
+FXText.Visible = false
+FXText.Parent = FXHolder
+
+local Segments = {}
+
+for i=1,12 do
+
+    local segment = Instance.new("Frame")
+    segment.AnchorPoint = Vector2.new(.5,.5)
+    segment.Size = UDim2.fromOffset(5,30)
+    segment.BackgroundColor3 = RED
+    segment.BorderSizePixel = 0
+    segment.Visible = false
+    segment.Parent = FXHolder
+
+    Instance.new("UICorner",segment).CornerRadius =
+        UDim.new(1,0)
+
+    table.insert(Segments,segment)
+
+end
+
+local FXConnection
+
+local function StartTeleportFX()
+
+    if not TeleportAnimation then
+        return
+    end
+
+    Ring1.Visible = true
+    Ring2.Visible = true
+    Ring3.Visible = true
+    FXText.Visible = true
+
+    for _,v in ipairs(Segments) do
+        v.Visible = true
+    end
+
+    Ring1.Size = UDim2.fromOffset(80,80)
+    Ring2.Size = UDim2.fromOffset(55,55)
+    Ring3.Size = UDim2.fromOffset(35,35)
+
+    if FXConnection then
+        FXConnection:Disconnect()
+    end
+
+    local rotation = 0
+
+    FXConnection =
+        RunService.RenderStepped:Connect(function(dt)
+
+            rotation += dt*260
+
+            Ring1.Rotation = rotation
+            Ring2.Rotation = -rotation*1.5
+            Ring3.Rotation = rotation*2
+
+            for i,segment in ipairs(Segments) do
+
+                local angle =
+                    math.rad((i-1)*30+rotation)
+
+                segment.Position =
+                    UDim2.new(
+                        .5,
+                        math.cos(angle)*110,
+                        .5,
+                        math.sin(angle)*110
+                    )
+
+                segment.Rotation =
+                    rotation+i*30
+
+            end
+
+        end)
+
+    TweenService:Create(
+        Ring1,
+        TweenInfo.new(.3,Enum.EasingStyle.Back),
+        {Size=UDim2.fromOffset(240,240)}
+    ):Play()
+
+    TweenService:Create(
+        Ring2,
+        TweenInfo.new(.3,Enum.EasingStyle.Back),
+        {Size=UDim2.fromOffset(180,180)}
+    ):Play()
+
+    TweenService:Create(
+        Ring3,
+        TweenInfo.new(.3,Enum.EasingStyle.Back),
+        {Size=UDim2.fromOffset(110,110)}
+    ):Play()
+
+end
+
+local function StopTeleportFX()
+
+    if FXConnection then
+        FXConnection:Disconnect()
+        FXConnection = nil
+    end
+
+    for _,ring in ipairs({Ring1,Ring2,Ring3}) do
+
+        local stroke =
+            ring:FindFirstChildOfClass("UIStroke")
+
+        if stroke then
+            stroke.Transparency = 1
+        end
+
+    end
+
+    FXText.TextTransparency = 1
+
+    task.delay(.25,function()
+
+        for _,ring in ipairs({Ring1,Ring2,Ring3}) do
+
+            ring.Visible = false
+
+            local stroke =
+                ring:FindFirstChildOfClass("UIStroke")
+
+            if stroke then
+                stroke.Transparency = 0
+            end
+
+        end
+
+        FXText.Visible = false
+        FXText.TextTransparency = 0
+
+        for _,v in ipairs(Segments) do
+            v.Visible = false
+        end
+
+    end)
+
+end
+
+local function TeleportToPlayer(target)
+
+    if TeleportBusy or not target then
+        return false
+    end
+
+    local char = P.Character
+    local root =
+        char and char:FindFirstChild("HumanoidRootPart")
+
+    local tc = target.Character
+    local tr =
+        tc and tc:FindFirstChild("HumanoidRootPart")
+
+    if not root or not tr then
+        return false
+    end
+
+    TeleportBusy = true
+
+    StartTeleportFX()
+
+    task.wait(
+        TeleportAnimation and .55 or 0
+    )
+
+    root.CFrame =
+        tr.CFrame*CFrame.new(0,0,3)
+
+    StopTeleportFX()
+
+    TeleportBusy = false
+
+    return true
+
+end
+
+--======================================================
+-- DASH
+--======================================================
+
+local DashGui = Instance.new("ScreenGui")
+DashGui.Name = "BloodMoonDash"
+DashGui.ResetOnSpawn = false
+DashGui.IgnoreGuiInset = true
+DashGui.DisplayOrder = 100
+DashGui.Parent = PlayerGui
+
+local DashButton = Instance.new("TextButton")
+DashButton.Size = UDim2.fromOffset(58,58)
+DashButton.Position = UDim2.new(1,-85,.72,0)
+DashButton.BackgroundColor3 =
+    Color3.fromRGB(70,5,20)
+DashButton.BorderSizePixel = 0
+DashButton.Text = "➤"
+DashButton.TextColor3 = Color3.new(1,1,1)
+DashButton.TextSize = 25
+DashButton.Font = Enum.Font.GothamBold
+DashButton.Visible = false
+DashButton.AutoButtonColor = false
+DashButton.Parent = DashGui
+
+Instance.new("UICorner",DashButton).CornerRadius =
+    UDim.new(1,0)
+
+local DashStroke = Instance.new("UIStroke")
+DashStroke.Color = RED
+DashStroke.Thickness = 2
+DashStroke.Parent = DashButton
+
+local DashText = Instance.new("TextLabel")
+DashText.Size = UDim2.new(1,0,0,18)
+DashText.Position = UDim2.fromOffset(0,58)
+DashText.BackgroundTransparency = 1
+DashText.Text = "DASH"
+DashText.TextColor3 = LIGHT_RED
+DashText.TextSize = 10
+DashText.Font = Enum.Font.GothamBold
+DashText.Parent = DashButton
+
+local function DoDash()
+
+    if not DashEnabled or DashBusy then
+        return
+    end
+
+    local char = P.Character
+    local root =
+        char and char:FindFirstChild("HumanoidRootPart")
+    local humanoid =
+        char and char:FindFirstChildOfClass("Humanoid")
+
+    if not root or not humanoid then
+        return
+    end
+
+    DashBusy = true
+
+    local camera = workspace.CurrentCamera
+    local look =
+        camera and camera.CFrame.LookVector
+        or root.CFrame.LookVector
+
+    local flat =
+        Vector3.new(look.X,0,look.Z)
+
+    if flat.Magnitude < .01 then
+        flat = Vector3.new(
+            root.CFrame.LookVector.X,
+            0,
+            root.CFrame.LookVector.Z
+        )
+    end
+
+    flat = flat.Unit
+
+    if not ShiftLock then
+
+        root.CFrame =
+            CFrame.lookAt(
+                root.Position,
+                root.Position+flat
+            )
+
+    end
+
+    local velocity =
+        DashDistance / DashDuration
+
+    local start = os.clock()
+    local connection
+
+    connection =
+        RunService.Heartbeat:Connect(function()
+
+            if not root.Parent then
+
+                connection:Disconnect()
+                return
+
+            end
+
+            local elapsed = os.clock()-start
+
+            if elapsed >= DashDuration then
+
+                connection:Disconnect()
+
+                local v =
+                    root.AssemblyLinearVelocity
+
+                root.AssemblyLinearVelocity =
+                    Vector3.new(
+                        0,
+                        v.Y,
+                        0
+                    )
+
+                return
+
+            end
+
+            root.AssemblyLinearVelocity =
+                flat*velocity+
+                Vector3.new(
+                    0,
+                    root.AssemblyLinearVelocity.Y,
+                    0
+                )
+
+        end)
+
+    task.delay(DashCooldown,function()
+        DashBusy = false
+    end)
+
+end
+
+DashButton.Activated:Connect(DoDash)
+
+--======================================================
+-- MAIN PAGE
+--======================================================
+
+local function MainPage()
+
+    Clear()
+
+    TitlePage("Main")
+
+    local inf = Button(
+        "INFINITE JUMP : "..(InfiniteJump and "ON" or "OFF"),
+        45
+    )
+
+    local lock = Button(
+        "LOCK POSITION : "..(LockPosition and "ON" or "OFF"),
+        95
+    )
+
+    local fly = Button(
+        "FLY : "..(Fly and "ON" or "OFF"),
+        145
+    )
+
+    local speed = Box(tostring(FlySpeed),195)
+    speed.PlaceholderText = "Fly Speed"
+
+    local dash = Button(
+        "LƯỚT : "..(DashEnabled and "ON" or "OFF"),
+        245
+    )
+
+    local distance = Box(
+        tostring(DashDistance),
+        295
+    )
+
+    local duration = Box(
+        tostring(DashDuration),
+        345
+    )
+
+    local status = Status(
+        "BloodMoon Main ready.",
+        395
+    )
+
+    inf.Activated:Connect(function()
+
+        InfiniteJump = not InfiniteJump
+
+        inf.Text =
+            "INFINITE JUMP : "
+            ..(InfiniteJump and "ON" or "OFF")
+
+    end)
+
+    lock.Activated:Connect(function()
+
+        local char = P.Character
+        local root =
+            char and char:FindFirstChild("HumanoidRootPart")
+
+        if not LockPosition then
+
+            if root then
+
+                LockedCFrame = root.CFrame
+                LockPosition = true
+
+                status.Text = "Position locked."
+
+            end
+
+        else
+
+            LockPosition = false
+            LockedCFrame = nil
+            status.Text = "Position unlocked."
+
+        end
+
+        lock.Text =
+            "LOCK POSITION : "
+            ..(LockPosition and "ON" or "OFF")
+
+    end)
+
+    fly.Activated:Connect(function()
+
+        Fly = not Fly
+
+        fly.Text =
+            "FLY : "
+            ..(Fly and "ON" or "OFF")
+
+    end)
+
+    speed.FocusLost:Connect(function()
+
+        FlySpeed =
+            math.clamp(
+                tonumber(speed.Text) or 50,
+                10,
+                200
+            )
+
+        speed.Text = tostring(FlySpeed)
+
+    end)
+
+    dash.Activated:Connect(function()
+
+        DashEnabled = not DashEnabled
+
+        DashButton.Visible = DashEnabled
+
+        dash.Text =
+            "LƯỚT : "
+            ..(DashEnabled and "ON" or "OFF")
+
+    end)
+
+    distance.FocusLost:Connect(function()
+
+        DashDistance =
+            math.clamp(
+                tonumber(distance.Text) or 35,
+                5,
+                100
+            )
+
+        distance.Text =
+            tostring(DashDistance)
+
+    end)
+
+    duration.FocusLost:Connect(function()
+
+        DashDuration =
+            math.clamp(
+                tonumber(duration.Text) or .2,
+                .05,
+                1
+            )
+
+        duration.Text =
+            tostring(DashDuration)
+
+    end)
+
+end
+
+--======================================================
+-- FOLLOW PAGE
+--======================================================
+
+local function FollowPage()
+
+    Clear()
+
+    TitlePage("Follow")
+
+    local box = Box("",40)
+    box.PlaceholderText = "Target Name"
+
+    local dist = Box(
+        tostring(FollowDistance),
+        85
+    )
+
+    local follow = Button(
+        "FOLLOW : "..(Following and "ON" or "OFF"),
+        130
+    )
+
+    local auto = Button(
+        "AUTO TARGET : "..(AutoTarget and "ON" or "OFF"),
+        180
+    )
+
+    local status = Status(
+        Target and "Target: "..Target.Name or "No Target",
+        235
+    )
+
+    follow.Activated:Connect(function()
+
+        if Following then
+
+            Following = false
+            Target = nil
+
+        else
+
+            local player = FindPlayer(box.Text)
+
+            if player then
+
+                Target = player
+                Following = true
+                status.Text =
+                    "Following: "..player.Name
+
+            else
+
+                status.Text =
+                    "Target not found."
+
+            end
+
+        end
+
+        follow.Text =
+            "FOLLOW : "
+            ..(Following and "ON" or "OFF")
+
+    end)
+
+    auto.Activated:Connect(function()
+
+        AutoTarget = not AutoTarget
+
+        if AutoTarget then
+
+            Following = true
+            Target = FindNearest()
+
+        else
+
+            Following = false
+            Target = nil
+
+        end
+
+        auto.Text =
+            "AUTO TARGET : "
+            ..(AutoTarget and "ON" or "OFF")
+
+    end)
+
+    dist.FocusLost:Connect(function()
+
+        FollowDistance =
+            math.clamp(
+                tonumber(dist.Text) or 3,
+                1,
+                50
+            )
+
+        dist.Text =
+            tostring(FollowDistance)
+
+    end)
+
+end
+
+--======================================================
+-- FARM PAGE
+--======================================================
+
+local function FarmPage()
+
+    Clear()
+
+    TitlePage("Farm")
+
+    local selected = Status(
+        SelectedTool
+        and "Selected: "..SelectedTool
+        or "Selected: None",
+        40
+    )
+
+    local drop = Button(
+        "SELECT TOOL ▼",
+        75
+    )
+
+    local optionFrame = Instance.new("Frame")
+    optionFrame.Size = UDim2.new(1,-8,0,238)
+    optionFrame.Position = UDim2.fromOffset(0,120)
+    optionFrame.BackgroundColor3 =
+        Color3.fromRGB(30,8,16)
+    optionFrame.BorderSizePixel = 0
+    optionFrame.Visible = false
+    optionFrame.ZIndex = 20
+    optionFrame.Parent = Content
+
+    Instance.new("UICorner",optionFrame).CornerRadius =
+        UDim.new(0,8)
+
+    local layout = Instance.new("UIListLayout")
+    layout.Parent = optionFrame
+
+    for _,toolName in ipairs(FarmTools) do
+
+        local item = Instance.new("TextButton")
+        item.Size = UDim2.new(1,0,0,34)
+        item.BackgroundColor3 =
+            Color3.fromRGB(50,10,24)
+        item.BorderSizePixel = 0
+        item.Text = toolName
+        item.TextColor3 = Color3.new(1,1,1)
+        item.TextSize = 12
+        item.Font = Enum.Font.GothamMedium
+        item.ZIndex = 21
+        item.Parent = optionFrame
+
+        item.Activated:Connect(function()
+
+            SelectedTool = toolName
+
+            selected.Text =
+                "Selected: "..toolName
+
+            drop.Text =
+                toolName.." ▼"
+
+            optionFrame.Visible = false
+
+        end)
+
+    end
+
+    drop.Activated:Connect(function()
+
+        optionFrame.Visible =
+            not optionFrame.Visible
+
+    end)
+
+    local auto = Button(
+        "AUTO FARM : "
+        ..(AutoFarm and "ON" or "OFF"),
+        370
+    )
+
+    local fast = Button(
+        "FAST ANIMATION : "
+        ..(FastAnimation and "ON" or "OFF"),
+        420
+    )
+
+    local anim = Box(
+        tostring(FastAnimationSpeed),
+        470
+    )
+
+    anim.PlaceholderText =
+        "Animation Speed"
+
+    local status = Status(
+        "Farm ready.",
+        520
+    )
+
+    auto.Activated:Connect(function()
+
+        if not SelectedTool then
+
+            status.Text =
+                "Hãy chọn Tool trước."
+
+            return
+
+        end
+
+        AutoFarm = not AutoFarm
+
+        auto.Text =
+            "AUTO FARM : "
+            ..(AutoFarm and "ON" or "OFF")
+
+        status.Text =
+            AutoFarm
+            and "Running: "..SelectedTool
+            or "Stopped."
+
+    end)
+
+    fast.Activated:Connect(function()
+
+        FastAnimation = not FastAnimation
+
+        fast.Text =
+            "FAST ANIMATION : "
+            ..(FastAnimation and "ON" or "OFF")
+
+    end)
+
+    anim.FocusLost:Connect(function()
+
+        FastAnimationSpeed =
+            math.clamp(
+                tonumber(anim.Text) or 2,
+                .5,
+                10
+            )
+
+        anim.Text =
+            tostring(FastAnimationSpeed)
+
+    end)
+
+end
+
+--======================================================
+-- TELEPORT PAGE
+--======================================================
+
+local function TeleportPage()
+
+    Clear()
+
+    TitlePage("Teleport")
+
+    local box = Box("",40)
+    box.PlaceholderText = "Player Name"
+
+    local tp = Button(
+        "TELEPORT TO PLAYER",
+        90
+    )
+
+    local fx = Button(
+        "RED MAGIC FX : "
+        ..(TeleportAnimation and "ON" or "OFF"),
+        140
+    )
+
+    local status = Status(
+        "Teleport ready.",
+        195
+    )
+
+    tp.Activated:Connect(function()
+
+        local target =
+            FindPlayer(box.Text)
+
+        if not target then
+
+            status.Text =
+                "Player not found."
+
+            return
+
+        end
+
+        if TeleportToPlayer(target) then
+
+            status.Text =
+                "Teleported to "..target.Name
+
+        end
+
+    end)
+
+    fx.Activated:Connect(function()
+
+        TeleportAnimation =
+            not TeleportAnimation
+
+        fx.Text =
+            "RED MAGIC FX : "
+            ..(TeleportAnimation and "ON" or "OFF")
+
+    end)
+
+end
+
+--======================================================
+-- KILL / TARGET PAGE
+--======================================================
+
+local function KillPage()
+
+    Clear()
+
+    TitlePage("Kill / Target")
+
+    local box = Box("",40)
+    box.PlaceholderText = "Target Name"
+
+    local target = Button("TARGET : OFF",85)
+    local all = Button("TARGET ALL : OFF",135)
+    local view = Button("VIEW TARGET : OFF",185)
+    local stop = Button("STOP VIEW",235)
+
+    target.Activated:Connect(function()
+
+        local player =
+            FindPlayer(box.Text)
+
+        if player then
+
+            Target = player
+            target.Text = "TARGET : ON"
+
+        end
+
+    end)
+
+    all.Activated:Connect(function()
+
+        TargetAll = not TargetAll
+
+        all.Text =
+            "TARGET ALL : "
+            ..(TargetAll and "ON" or "OFF")
+
+        if TargetAll then
+            Target = FindNearest()
+        end
+
+    end)
+
+    view.Activated:Connect(function()
+
+        if Target then
+
+            ViewTarget = not ViewTarget
+
+            view.Text =
+                "VIEW TARGET : "
+                ..(ViewTarget and "ON" or "OFF")
+
+        end
+
+    end)
+
+    stop.Activated:Connect(function()
+
+        ViewTarget = false
+
+        local humanoid =
+            P.Character
+            and P.Character:FindFirstChildOfClass("Humanoid")
+
+        if humanoid then
+
+            workspace.CurrentCamera.CameraSubject =
+                humanoid
+
+        end
+
+        view.Text = "VIEW TARGET : OFF"
+
+    end)
+
+end
+
+--======================================================
+-- HIDE STATS V7 FIX
+--======================================================
+-- Quét cả Character + PlayerGui
+-- Nhận diện theo tên object và nội dung text
+-- Theo dõi object mới được tạo
+-- Có thể restore trạng thái ban đầu
+--======================================================
+
+local HiddenStatsObjects = {}
+
+local StatKeywords = {
+
+    "stat",
+    "stats",
+
+    "strength",
+    "muscle",
+    "power",
+
+    "energy",
+    "stamina",
+    "speed",
+
+    "wins",
+    "win",
+
+    "cash",
+    "coin",
+    "coins",
+    "money",
+
+    "rebirth",
+    "rebirths",
+
+    "multiplier",
+    "multipliers",
+    "mult",
+
+    "level",
+    "lvl",
+
+    "rank",
+
+    "score",
+    "scores",
+
+    "point",
+    "points",
+
+    "damage",
+    "kills",
+    "kill",
+
+    "punch",
+    "push",
+    "lift",
+    "weight",
+
+    "value",
+
+    "leaderstats",
+
+    "powerlevel",
+    "power level",
+
+    "total",
+
+    "kg",
+    "lb"
+}
+
+local function ContainsStatKeyword(text)
+
+    if not text then
+        return false
+    end
+
+    text = string.lower(tostring(text))
+
+    for _,keyword in ipairs(StatKeywords) do
+
+        if string.find(
+            text,
+            keyword,
+            1,
+            true
+        ) then
+
+            return true
+
+        end
+
+    end
+
+    return false
+
+end
+
+local function IsStatObject(obj)
+
+    if not obj then
+        return false
+    end
+
+    local objectName =
+        string.lower(obj.Name or "")
+
+    if ContainsStatKeyword(objectName) then
+        return true
+    end
+
+    --==================================================
+    -- KIỂM TRA TEXT
+    --==================================================
+
+    if
+        obj:IsA("TextLabel")
+        or
+        obj:IsA("TextButton")
+        or
+        obj:IsA("TextBox")
+    then
+
+        if ContainsStatKeyword(obj.Text) then
+            return true
+        end
+
+    end
+
+    return false
+
+end
+
+local function SaveAndHide(obj)
+
+    if not obj then
+        return
+    end
+
+    --==================================================
+    -- BILLBOARD / SURFACE GUI
+    --==================================================
+
+    if
+        obj:IsA("BillboardGui")
+        or
+        obj:IsA("SurfaceGui")
+    then
+
+        if HiddenStatsObjects[obj] == nil then
+
+            HiddenStatsObjects[obj] = {
+                Type = "Enabled",
+                Value = obj.Enabled
+            }
+
+        end
+
+        obj.Enabled = false
+
+        return
+
+    end
+
+    --==================================================
+    -- TEXT OBJECT
+    --==================================================
+
+    if
+        obj:IsA("TextLabel")
+        or
+        obj:IsA("TextButton")
+        or
+        obj:IsA("TextBox")
+    then
+
+        if HiddenStatsObjects[obj] == nil then
+
+            HiddenStatsObjects[obj] = {
+                Type = "Visible",
+                Value = obj.Visible
+            }
+
+        end
+
+        obj.Visible = false
+
+        return
+
+    end
+
+end
+
+local function ScanStats(container)
+
+    if not container then
+        return
+    end
+
+    for _,obj in ipairs(
+        container:GetDescendants()
+    ) do
+
+        if IsStatObject(obj) then
+
+            SaveAndHide(obj)
+
+        end
+
+    end
+
+end
+
+local function RestoreAllStats()
+
+    for obj,data in pairs(
+        HiddenStatsObjects
+    ) do
+
+        if obj and obj.Parent then
+
+            pcall(function()
+
+                if data.Type == "Enabled" then
+
+                    obj.Enabled = data.Value
+
+                elseif data.Type == "Visible" then
+
+                    obj.Visible = data.Value
+
+                end
+
+            end)
+
+        end
+
+    end
+
+    HiddenStatsObjects = {}
+
+end
+
+local HideStatsConnections = {}
+
+local function DisconnectHideStatsConnections()
+
+    for _,connection in ipairs(
+        HideStatsConnections
+    ) do
+
+        pcall(function()
+            connection:Disconnect()
+        end)
+
+    end
+
+    HideStatsConnections = {}
+
+end
+
+local function ConnectHideStatsWatcher(container)
+
+    if not container then
+        return
+    end
+
+    local connection =
+        container.DescendantAdded:Connect(
+            function(obj)
+
+                if not HideStats then
+                    return
+                end
+
+                task.defer(function()
+
+                    if IsStatObject(obj) then
+
+                        SaveAndHide(obj)
+
+                    end
+
+                    -- Một số GUI tạo children
+                    -- sau khi object chính được tạo
+
+                    task.defer(function()
+
+                        if HideStats then
+                            ScanStats(container)
+                        end
+
+                    end)
+
+                end)
+
+            end
+        )
+
+    table.insert(
+        HideStatsConnections,
+        connection
+    )
+
+end
+
+local function SetStatsVisible(state)
+
+    HideStats = state
+
+    DisconnectHideStatsConnections()
+
+    --==================================================
+    -- TẮT HIDE STATS
+    --==================================================
+
+    if not HideStats then
+
+        RestoreAllStats()
+
+        return
+
+    end
+
+    --==================================================
+    -- BẬT HIDE STATS
+    --==================================================
+
+    -- Character
+    if P.Character then
+
+        ScanStats(P.Character)
+
+        ConnectHideStatsWatcher(
+            P.Character
+        )
+
+    end
+
+    -- PlayerGui
+    ScanStats(PlayerGui)
+
+    ConnectHideStatsWatcher(
+        PlayerGui
+    )
+
+end
+
+--======================================================
+-- FIX LAG
+--======================================================
+
+local function ApplyLowGraphics(enabled)
+
+    LowGraphics = enabled
+
+    if enabled then
+
+        OldLighting.Brightness =
+            Lighting.Brightness
+
+        OldLighting.GlobalShadows =
+            Lighting.GlobalShadows
+
+        OldLighting.FogEnd =
+            Lighting.FogEnd
+
+        Lighting.Brightness = 0
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 100000
+
+    else
+
+        if OldLighting.Brightness ~= nil then
+
+            Lighting.Brightness =
+                OldLighting.Brightness
+
+        end
+
+        if OldLighting.GlobalShadows ~= nil then
+
+            Lighting.GlobalShadows =
+                OldLighting.GlobalShadows
+
+        end
+
+        if OldLighting.FogEnd ~= nil then
+
+            Lighting.FogEnd =
+                OldLighting.FogEnd
+
+        end
+
+    end
+
+    for _,obj in ipairs(
+        workspace:GetDescendants()
+    ) do
+
+        if
+            obj:IsA("ParticleEmitter")
+            or
+            obj:IsA("Trail")
+            or
+            obj:IsA("Beam")
+        then
+
+            obj.Enabled = not enabled
+
+        elseif obj:IsA("BasePart") then
+
+            if enabled then
+
+                if not OldGraphics[obj] then
+
+                    OldGraphics[obj] =
+                        obj.Material
+
+                end
+
+                obj.Material =
+                    Enum.Material.SmoothPlastic
+
+            elseif OldGraphics[obj] then
+
+                obj.Material =
+                    OldGraphics[obj]
+
+            end
+
+        end
+
+    end
+
+end
+
+--======================================================
+-- MISC PAGE
+--======================================================
+
+local function MiscPage()
+
+    Clear()
+
+    TitlePage("Misc")
+
+    local shift = Button(
+        "SHIFT LOCK : "
+        ..(ShiftLock and "ON" or "OFF"),
+        40
+    )
+
+    local afk = Button(
+        "ANTI AFK : "
+        ..(AntiAFK and "ON" or "OFF"),
+        90
+    )
+
+    local timer = Status(
+        "ANTI AFK TIME : 00:00:00",
+        140
+    )
+
+    local hide = Button(
+        "HIDE STATS : "
+        ..(HideStats and "ON" or "OFF"),
+        190
+    )
+
+    local lag = Button(
+        "FIX LAG : "
+        ..(LowGraphics and "ON" or "OFF"),
+        240
+    )
+
+    local status = Status(
+        "Misc ready.",
+        290
+    )
+
+    shift.Activated:Connect(function()
+
+        ShiftLock = not ShiftLock
+
+        shift.Text =
+            "SHIFT LOCK : "
+            ..(ShiftLock and "ON" or "OFF")
+
+    end)
+
+    afk.Activated:Connect(function()
+
+        AntiAFK = not AntiAFK
+
+        if AntiAFK then
+            AFKTime = 0
+        end
+
+        afk.Text =
+            "ANTI AFK : "
+            ..(AntiAFK and "ON" or "OFF")
+
+    end)
+
+    hide.Activated:Connect(function()
+
+        SetStatsVisible(
+            not HideStats
+        )
+
+        hide.Text =
+            "HIDE STATS : "
+            ..(HideStats and "ON" or "OFF")
+
+        status.Text =
+            HideStats
+            and "All visible stats hidden."
+            or "Stats restored."
+
+    end)
+
+    lag.Activated:Connect(function()
+
+        ApplyLowGraphics(
+            not LowGraphics
+        )
+
+        lag.Text =
+            "FIX LAG : "
+            ..(LowGraphics and "ON" or "OFF")
+
+        status.Text =
+            LowGraphics
+            and "Graphics tối thiểu + giảm sáng."
+            or "Graphics restored."
+
+    end)
+
+    task.spawn(function()
+
+        while timer.Parent do
+
+            local sec =
+                math.floor(AFKTime)
+
+            local h =
+                math.floor(sec/3600)
+
+            local m =
+                math.floor(
+                    (sec%3600)/60
+                )
+
+            local s =
+                sec%60
+
+            timer.Text =
+                string.format(
+                    "ANTI AFK TIME : %02d:%02d:%02d",
+                    h,
+                    m,
+                    s
+                )
+
+            task.wait(1)
+
+        end
+
+    end)
+
+end
+
+--======================================================
+-- MUSIC PAGE
+--======================================================
+
+local function CleanSoundId(value)
+
+    value = tostring(value or "")
+
+    value =
+        value:gsub(
+            "rbxassetid://",
+            ""
+        )
+
+    value =
+        value:gsub(
+            "%s+",
+            ""
+        )
+
+    return value
+
+end
+
+local function RandomMusicPlay()
+
+    if #MusicList == 0 then
+        return false
+    end
+
+    local id =
+        MusicList[
+            math.random(
+                1,
+                #MusicList
+            )
+        ]
+
+    MusicId =
+        CleanSoundId(id)
+
+    Music.SoundId =
+        "rbxassetid://"..MusicId
+
+    Music.Volume =
+        MusicVolume
+
+    Music.Looped = false
+
+    pcall(function()
+        Music:Play()
+    end)
+
+    MusicPlaying = true
+
+    return true
+
+end
+
+Music.Ended:Connect(function()
+
+    MusicPlaying = false
+
+    if RandomMusic then
+
+        task.wait(.15)
+
+        if RandomMusic then
+            RandomMusicPlay()
+        end
+
+    end
+
+end)
+
+local function MusicPage()
+
+    Clear()
+
+    TitlePage("Music")
+
+    local id = Box(
+        MusicId,
+        45
+    )
+
+    id.PlaceholderText =
+        "SoundId"
+
+    local add = Button(
+        "ADD TO RANDOM LIST",
+        95
+    )
+
+    local play = Button(
+        "PLAY MUSIC",
+        145
+    )
+
+    local random = Button(
+        "RANDOM MUSIC : "
+        ..(RandomMusic and "ON" or "OFF"),
+        195
+    )
+
+    local stop = Button(
+        "STOP MUSIC",
+        245
+    )
+
+    local volume = Box(
+        tostring(MusicVolume),
+        295
+    )
+
+    local loop = Button(
+        "LOOP : "
+        ..(MusicLoop and "ON" or "OFF"),
+        345
+    )
+
+    local list = Box(
+        table.concat(
+            MusicList,
+            ","
+        ),
+        395
+    )
+
+    local status = Status(
+        "Music ready.",
+        445
+    )
+
+    id.FocusLost:Connect(function()
+
+        MusicId =
+            CleanSoundId(id.Text)
+
+        id.Text =
+            MusicId
+
+    end)
+
+    add.Activated:Connect(function()
+
+        local value =
+            CleanSoundId(id.Text)
+
+        if tonumber(value) then
+
+            table.insert(
+                MusicList,
+                value
+            )
+
+            status.Text =
+                "Added: "..value
+
+        end
+
+    end)
+
+    play.Activated:Connect(function()
+
+        RandomMusic = false
+
+        local value =
+            CleanSoundId(id.Text)
+
+        if not tonumber(value) then
+
+            status.Text =
+                "SoundId không hợp lệ."
+
+            return
+
+        end
+
+        MusicId = value
+
+        Music.SoundId =
+            "rbxassetid://"..value
+
+        Music.Volume =
+            MusicVolume
+
+        Music.Looped =
+            MusicLoop
+
+        pcall(function()
+            Music:Play()
+        end)
+
+        MusicPlaying = true
+
+        status.Text =
+            "Playing: "..value
+
+    end)
+
+    random.Activated:Connect(function()
+
+        RandomMusic =
+            not RandomMusic
+
+        random.Text =
+            "RANDOM MUSIC : "
+            ..(RandomMusic and "ON" or "OFF")
+
+        if RandomMusic then
+
+            if not RandomMusicPlay() then
+
+                RandomMusic = false
+
+                random.Text =
+                    "RANDOM MUSIC : OFF"
+
+                status.Text =
+                    "Random list trống."
+
+            end
+
+        else
+
+            Music:Stop()
+
+        end
+
+    end)
+
+    stop.Activated:Connect(function()
+
+        RandomMusic = false
+        MusicPlaying = false
+
+        Music:Stop()
+
+        status.Text =
+            "Music stopped."
+
+    end)
+
+    volume.FocusLost:Connect(function()
+
+        MusicVolume =
+            math.clamp(
+                tonumber(volume.Text) or .5,
+                0,
+                1
+            )
+
+        volume.Text =
+            tostring(MusicVolume)
+
+        Music.Volume =
+            MusicVolume
+
+    end)
+
+    loop.Activated:Connect(function()
+
+        MusicLoop =
+            not MusicLoop
+
+        Music.Looped =
+            MusicLoop
+
+        loop.Text =
+            "LOOP : "
+            ..(MusicLoop and "ON" or "OFF")
+
+    end)
+
+    list.FocusLost:Connect(function()
+
+        MusicList = {}
+
+        for value in string.gmatch(
+            list.Text,
+            "[^,%s]+"
+        ) do
+
+            value =
+                CleanSoundId(value)
+
+            if tonumber(value) then
+
+                table.insert(
+                    MusicList,
+                    value
+                )
+
+            end
+
+        end
+
+        status.Text =
+            "Random list: "
+            ..#MusicList
+
+    end)
+
+end
+
+--======================================================
+-- SETTINGS PAGE
+--======================================================
+
+local function SettingsPage()
+
+    Clear()
+
+    TitlePage("Settings")
+
+    local boost = Button(
+        "BOOST FPS : "
+        ..(BoostFPS and "ON" or "OFF"),
+        40
+    )
+
+    local punch = Button(
+        "AUTO PUNCH : "
+        ..(AutoPunch and "ON" or "OFF"),
+        90
+    )
+
+    local click = Button(
+        "AUTO CLICK : "
+        ..(AutoClick and "ON" or "OFF"),
+        140
+    )
+
+    local interval = Box(
+        tostring(AutoInterval),
+        190
+    )
+
+    interval.PlaceholderText =
+        "Auto Click Interval"
+
+    local status = Status(
+        "Settings ready.",
+        240
+    )
+
+    boost.Activated:Connect(function()
+
+        BoostFPS =
+            not BoostFPS
+
+        boost.Text =
+            "BOOST FPS : "
+            ..(BoostFPS and "ON" or "OFF")
+
+        ApplyLowGraphics(
+            BoostFPS
+        )
+
+        status.Text =
+            BoostFPS
+            and "FPS boost enabled."
+            or "FPS boost disabled."
+
+    end)
+
+    punch.Activated:Connect(function()
+
+        AutoPunch =
+            not AutoPunch
+
+        punch.Text =
+            "AUTO PUNCH : "
+            ..(AutoPunch and "ON" or "OFF")
+
+    end)
+
+    click.Activated:Connect(function()
+
+        AutoClick =
+            not AutoClick
+
+        click.Text =
+            "AUTO CLICK : "
+            ..(AutoClick and "ON" or "OFF")
+
+    end)
+
+    interval.FocusLost:Connect(function()
+
+        AutoInterval =
+            math.clamp(
+                tonumber(interval.Text) or .15,
+                .05,
+                2
+            )
+
+        interval.Text =
+            tostring(AutoInterval)
+
+    end)
+
+end
+
+--======================================================
+-- INFINITE JUMP
+--======================================================
+
+UIS.JumpRequest:Connect(function()
+
+    if not InfiniteJump then
+        return
+    end
+
+    local char = P.Character
+
+    local humanoid =
+        char and
+        char:FindFirstChildOfClass(
+            "Humanoid"
+        )
+
+    if humanoid then
+
+        humanoid:ChangeState(
+            Enum.HumanoidStateType.Jumping
+        )
+
+    end
+
+end)
+
+--======================================================
+-- SHIFT LOCK
+--======================================================
+
+RunService:BindToRenderStep(
+    "BloodMoonShiftLock",
+    Enum.RenderPriority.Character.Value+1,
+    function()
+
+        if not ShiftLock then
+            return
+        end
+
+        local char = P.Character
+
+        local humanoid =
+            char and
+            char:FindFirstChildOfClass(
+                "Humanoid"
+            )
+
+        local root =
+            char and
+            char:FindFirstChild(
+                "HumanoidRootPart"
+            )
+
+        local camera =
+            workspace.CurrentCamera
+
+        if
+            not humanoid
+            or
+            not root
+            or
+            not camera
+        then
+
+            return
+
+        end
+
+        local look =
+            camera.CFrame.LookVector
+
+        local flat =
+            Vector3.new(
+                look.X,
+                0,
+                look.Z
+            )
+
+        if flat.Magnitude > .001 then
+
+            humanoid.AutoRotate = false
+
+            root.CFrame =
+                CFrame.lookAt(
+                    root.Position,
+                    root.Position+flat.Unit
+                )
+
+        end
+
+    end
+)
+
+--======================================================
+-- FLY
+--======================================================
+
+RunService.RenderStepped:Connect(function()
+
+    if not Fly then
+        return
+    end
+
+    local char = P.Character
+
+    local root =
+        char and
+        char:FindFirstChild(
+            "HumanoidRootPart"
+        )
+
+    local humanoid =
+        char and
+        char:FindFirstChildOfClass(
+            "Humanoid"
+        )
+
+    if
+        not root
+        or
+        not humanoid
+    then
+
+        return
+
+    end
+
+    local direction =
+        humanoid.MoveDirection
+
+    local movement =
+        Vector3.new(
+            direction.X,
+            0,
+            direction.Z
+        )
+
+    if movement.Magnitude > 0 then
+
+        movement =
+            movement.Unit*FlySpeed
+
+    end
+
+    root.AssemblyLinearVelocity =
+        movement+
+        Vector3.new(
+            0,
+            0,
+            0
+        )
+
+    humanoid:ChangeState(
+        Enum.HumanoidStateType.Physics
+    )
+
+end)
+
+--======================================================
+-- LOCK POSITION
+--======================================================
+
+RunService.RenderStepped:Connect(function()
+
+    if
+        not LockPosition
+        or
+        not LockedCFrame
+    then
+
+        return
+
+    end
+
+    local char = P.Character
+
+    local root =
+        char and
+        char:FindFirstChild(
+            "HumanoidRootPart"
+        )
+
+    if root then
+
+        root.CFrame =
+            LockedCFrame
+
+        root.AssemblyLinearVelocity =
+            Vector3.zero
+
+    end
+
+end)
+
+--======================================================
+-- FOLLOW
+--======================================================
+
+RunService.RenderStepped:Connect(function()
+
+    if AutoTarget then
+
+        if
+            not Target
+            or
+            not Target.Parent
+            or
+            not Target.Character
+        then
+
+            Target =
+                FindNearest()
+
+        end
+
+    end
+
+    if
+        Following
+        and
+        Target
+    then
+
+        local root =
+            P.Character
+            and
+            P.Character:FindFirstChild(
+                "HumanoidRootPart"
+            )
+
+        local targetRoot =
+            Target.Character
+            and
+            Target.Character:FindFirstChild(
+                "HumanoidRootPart"
+            )
+
+        if
+            root
+            and
+            targetRoot
+        then
+
+            root.CFrame =
+                targetRoot.CFrame*
+                CFrame.new(
+                    0,
+                    0,
+                    FollowDistance
+                )
+
+        end
+
+    end
+
+    if
+        ViewTarget
+        and
+        Target
+    then
+
+        local humanoid =
+            Target.Character
+            and
+            Target.Character:FindFirstChildOfClass(
+                "Humanoid"
+            )
+
+        if humanoid then
+
+            workspace.CurrentCamera.CameraSubject =
+                humanoid
+
+        end
+
+    end
+
+end)
+
+--======================================================
+-- FARM
+--======================================================
+
+task.spawn(function()
+
+    while task.wait(.1) do
+
+        if
+            AutoFarm
+            and
+            SelectedTool
+            and
+            not FarmRunning
+        then
+
+            FarmRunning = true
+
+            local player = P
+            local char =
+                player.Character
+
+            if char then
+
+                local humanoid =
+                    char:FindFirstChildOfClass(
+                        "Humanoid"
+                    )
+
+                local tool =
+                    char:FindFirstChild(
+                        SelectedTool
+                    )
+
+                if not tool then
+
+                    tool =
+                        player.Backpack:
+                        FindFirstChild(
+                            SelectedTool
+                        )
+
+                    if
+                        tool
+                        and
+                        humanoid
+                    then
+
+                        pcall(function()
+
+                            humanoid:EquipTool(
+                                tool
+                            )
+
+                        end)
+
+                    end
+
+                end
+
+                if tool then
+
+                    pcall(function()
+                        tool:Activate()
+                    end)
+
+                end
+
+            end
+
+            FarmRunning = false
+
+        end
+
+    end
+
+end)
+
+--======================================================
+-- FAST ANIMATION
+--======================================================
+
+task.spawn(function()
+
+    while task.wait(.1) do
+
+        if FastAnimation then
+
+            local char =
+                P.Character
+
+            local humanoid =
+                char
+                and
+                char:FindFirstChildOfClass(
+                    "Humanoid"
+                )
+
+            if humanoid then
+
+                for _,track in ipairs(
+                    humanoid:GetPlayingAnimationTracks()
+                ) do
+
+                    pcall(function()
+
+                        track:AdjustSpeed(
+                            FastAnimationSpeed
+                        )
+
+                    end)
+
+                end
+
+            end
+
+        end
+
+    end
+
+end)
+
+--======================================================
+-- AUTO CLICK / AUTO PUNCH
+--======================================================
+
+task.spawn(function()
+
+    while task.wait(
+        AutoInterval
+    ) do
+
+        if
+            AutoClick
+            or
+            AutoPunch
+        then
+
+            local char =
+                P.Character
+
+            if char then
+
+                local tool =
+                    char:FindFirstChildOfClass(
+                        "Tool"
+                    )
+
+                if tool then
+
+                    pcall(function()
+                        tool:Activate()
+                    end)
+
+                end
+
+            end
+
+        end
+
+    end
+
+end)
+
+--======================================================
+-- ANTI AFK
+--======================================================
+
+task.spawn(function()
+
+    while task.wait(1) do
+
+        if AntiAFK then
+
+            AFKTime += 1
+
+        else
+
+            AFKTime = 0
+
+        end
+
+    end
+
+end)
+
+P.Idled:Connect(function()
+
+    if not AntiAFK then
+        return
+    end
+
+    pcall(function()
+
+        VirtualUser:CaptureController()
+
+        VirtualUser:ClickButton2(
+            Vector2.new(0,0)
+        )
+
+    end)
+
+end)
+
+--======================================================
+-- RESPAWN + HIDE STATS REAPPLY
+--======================================================
+
+P.CharacterAdded:Connect(function(
+    character
+)
+
+    task.wait(1)
+
+    LockedCFrame = nil
+
+    --==================================================
+    -- HIDE STATS SAU RESPAWN
+    --==================================================
+
+    if HideStats then
+
+        -- Kết nối watcher cho Character mới
+        SetStatsVisible(true)
+
+        -- Quét thêm lần nữa vì nhiều game
+        -- tạo bảng stats trễ sau khi spawn
+        task.wait(.5)
+
+        if HideStats then
+            ScanStats(character)
+        end
+
+        task.wait(.5)
+
+        if HideStats then
+            ScanStats(character)
+            ScanStats(PlayerGui)
+        end
+
+    end
+
+    if DashEnabled then
+        DashButton.Visible = true
+    end
+
+end)
+
+--======================================================
+-- MINIMIZE
+--======================================================
+
+local Eye = Instance.new("ImageButton")
+Eye.Name = "BloodMoonLogo"
+Eye.Size = UDim2.fromOffset(65,65)
+Eye.Position = UDim2.fromOffset(15,150)
+Eye.BackgroundColor3 =
+    Color3.fromRGB(45,4,15)
+Eye.Image =
+    "rbxassetid://132069877725400"
+Eye.Visible = false
+Eye.Parent = Gui
+
+Instance.new("UICorner",Eye).CornerRadius =
+    UDim.new(1,0)
+
+local EyeStroke = Instance.new("UIStroke")
+EyeStroke.Color = RED
+EyeStroke.Thickness = 3
+EyeStroke.Parent = Eye
+
+Close.Activated:Connect(function()
+
+    Main.Visible = false
+    Eye.Visible = true
+
+end)
+
+Eye.Activated:Connect(function()
+
+    Main.Visible = true
+    Eye.Visible = false
+
+end)
+
+--======================================================
+-- DASH DRAG
+--======================================================
+
+local dashDragging = false
+local dashStart = nil
+local dashPosition = nil
+
+DashButton.InputBegan:Connect(function(input)
+
+    if
+        input.UserInputType ==
+            Enum.UserInputType.Touch
+        or
+        input.UserInputType ==
+            Enum.UserInputType.MouseButton1
+    then
+
+        dashDragging = true
+        dashStart = input.Position
+        dashPosition = DashButton.Position
+
+    end
+
+end)
+
+UIS.InputChanged:Connect(function(input)
+
+    if not dashDragging then
+        return
+    end
+
+    if
+        input.UserInputType ==
+            Enum.UserInputType.Touch
+        or
+        input.UserInputType ==
+            Enum.UserInputType.MouseMovement
+    then
+
+        local delta =
+            input.Position-dashStart
+
+        DashButton.Position =
+            UDim2.new(
+                dashPosition.X.Scale,
+                dashPosition.X.Offset+delta.X,
+                dashPosition.Y.Scale,
+                dashPosition.Y.Offset+delta.Y
+            )
+
+    end
+
+end)
+
+UIS.InputEnded:Connect(function(input)
+
+    if
+        input.UserInputType ==
+            Enum.UserInputType.Touch
+        or
+        input.UserInputType ==
+            Enum.UserInputType.MouseButton1
+    then
+
+        dashDragging = false
+
+    end
+
+end)
+
+--======================================================
+-- TABS
+--======================================================
+
+MainT.Activated:Connect(
+    MainPage
+)
+
+FollowT.Activated:Connect(
+    FollowPage
+)
+
+FarmT.Activated:Connect(
+    FarmPage
+)
+
+TeleportT.Activated:Connect(
+    TeleportPage
+)
+
+KillT.Activated:Connect(
+    KillPage
+)
+
+MiscT.Activated:Connect(
+    MiscPage
+)
+
+MusicT.Activated:Connect(
+    MusicPage
+)
+
+SettingsT.Activated:Connect(
+    SettingsPage
+)
+
+--======================================================
+-- START
+--======================================================
+
+MainPage()
+
+print(
+    "BloodMoon V7 loaded successfully - Hide Stats FIXED."
+) 
