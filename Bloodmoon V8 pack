@@ -1,0 +1,2691 @@
+--//========================================================
+--// BLOODMOON V8
+--// FULL VERSION
+--// MAIN + LIVE STATS
+--// STRENGTH / DURABILITY / REBIRTHS
+--// MOBILE SCROLLING
+--// HIDE STATS
+--// BLACK SCREEN FLOATING BUTTON
+--//========================================================
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local VirtualUser = game:GetService("VirtualUser")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local SoundService = game:GetService("SoundService")
+
+local Player = Players.LocalPlayer
+
+--========================================================
+-- GUI PARENT
+--========================================================
+
+local function getGuiParent()
+    local ok, gui = pcall(function()
+        if gethui then
+            return gethui()
+        end
+    end)
+
+    if ok and gui then
+        return gui
+    end
+
+    return Player:WaitForChild("PlayerGui")
+end
+
+local GUIParent = getGuiParent()
+
+pcall(function()
+    local old = GUIParent:FindFirstChild("BloodMoonV8")
+    if old then
+        old:Destroy()
+    end
+
+    local oldBlack = GUIParent:FindFirstChild("BloodMoonBlackScreen")
+    if oldBlack then
+        oldBlack:Destroy()
+    end
+end)
+
+--========================================================
+-- COLORS
+--========================================================
+
+local COLORS = {
+    Main = Color3.fromRGB(25,3,5),
+    Header = Color3.fromRGB(45,3,5),
+    Header2 = Color3.fromRGB(65,5,8),
+
+    Tab = Color3.fromRGB(45,4,6),
+    TabActive = Color3.fromRGB(105,8,12),
+
+    Section = Color3.fromRGB(42,4,6),
+    Element = Color3.fromRGB(34,4,6),
+
+    Button = Color3.fromRGB(80,5,8),
+    ButtonHover = Color3.fromRGB(115,8,12),
+
+    SwitchOff = Color3.fromRGB(55,5,7),
+    SwitchOn = Color3.fromRGB(145,10,16),
+
+    Text = Color3.fromRGB(255,255,255),
+    RedText = Color3.fromRGB(255,45,50),
+    SubText = Color3.fromRGB(205,150,150),
+
+    Border = Color3.fromRGB(175,15,22)
+}
+
+--========================================================
+-- HELPERS
+--========================================================
+
+local function corner(object,radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0,radius or 7)
+    c.Parent = object
+    return c
+end
+
+local function stroke(object,color,thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color or COLORS.Border
+    s.Thickness = thickness or 1
+    s.Parent = object
+    return s
+end
+
+local function textLabel(parent,text,size,font)
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Text = text or ""
+    label.TextColor3 = COLORS.Text
+    label.TextSize = size or 14
+    label.Font = font or Enum.Font.GothamSemibold
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
+    label.Parent = parent
+    return label
+end
+
+--========================================================
+-- CONFIG
+--========================================================
+
+local Config = {
+    FastRebirth = false,
+
+    FastFarm = false,
+    ControlledSpeed = true,
+    RepSpeed = 350,
+
+    SetSize1 = false,
+    LockPosition = false,
+
+    AutoEgg = false,
+    AutoShake = false,
+    AutoSpinWheel = false,
+
+    AntiLag = false,
+
+    HideStats = false,
+
+    -- BLACK SCREEN
+    BlackScreen = false,
+    BlackScreenActive = false
+}
+
+--========================================================
+-- CHARACTER / REFERENCES
+--========================================================
+
+local character = Player.Character or Player.CharacterAdded:Wait()
+
+local function getCharacter()
+    return Player.Character
+end
+
+local function getRoot()
+    local char = getCharacter()
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local muscleEvent = Player:WaitForChild("muscleEvent")
+local leaderstats = Player:WaitForChild("leaderstats")
+
+local rebirthsStat = leaderstats:WaitForChild("Rebirths")
+local strengthStat = leaderstats:WaitForChild("Strength")
+local durabilityStat = Player:WaitForChild("Durability")
+
+local backpack = Player:WaitForChild("Backpack")
+
+--========================================================
+-- LIVE STATS TRACKER
+--========================================================
+
+local StatsTracker = {
+    Strength = {
+        Current = 0,
+        Received = 0,
+        Last = 0,
+        History = {}
+    },
+
+    Durability = {
+        Current = 0,
+        Received = 0,
+        Last = 0,
+        History = {}
+    },
+
+    Rebirths = {
+        Current = 0,
+        Received = 0,
+        Last = 0,
+        History = {}
+    }
+}
+
+local function formatNumber(value)
+    value = tonumber(value) or 0
+
+    local abs = math.abs(value)
+
+    local units = {
+        {1e63,"Vg"},
+        {1e60,"Nod"},
+        {1e57,"Ocd"},
+        {1e54,"Spd"},
+        {1e51,"Sxd"},
+        {1e48,"Qid"},
+        {1e45,"Qad"},
+        {1e42,"Tdc"},
+        {1e39,"Ddc"},
+        {1e36,"Udc"},
+        {1e33,"Dc"},
+        {1e30,"No"},
+        {1e27,"Oc"},
+        {1e24,"Sp"},
+        {1e21,"Sx"},
+        {1e18,"Qi"},
+        {1e15,"Qa"},
+        {1e12,"T"},
+        {1e9,"B"},
+        {1e6,"M"},
+        {1e3,"K"}
+    }
+
+    for _,unit in ipairs(units) do
+        if abs >= unit[1] then
+            return string.format("%.2f%s",value/unit[1],unit[2])
+        end
+    end
+
+    if value % 1 == 0 then
+        return string.format("%.0f",value)
+    end
+
+    return string.format("%.2f",value)
+end
+
+local function startTracking(stat,value)
+    value = tonumber(value) or 0
+
+    stat.Current = value
+    stat.Last = value
+    stat.Received = 0
+    table.clear(stat.History)
+
+    table.insert(stat.History,{
+        Time = os.clock(),
+        Value = value
+    })
+end
+
+local function recordStat(stat,value)
+    value = tonumber(value) or 0
+
+    local old = stat.Last or value
+
+    if value > old then
+        stat.Received += value - old
+    end
+
+    stat.Current = value
+    stat.Last = value
+
+    table.insert(stat.History,{
+        Time = os.clock(),
+        Value = value
+    })
+
+    if #stat.History > 3000 then
+        table.remove(stat.History,1)
+    end
+end
+
+local function receivedPeriod(stat,seconds)
+    local now = os.clock()
+    local cutoff = now - seconds
+
+    local oldest
+
+    for i = #stat.History,1,-1 do
+        local item = stat.History[i]
+
+        if item.Time <= cutoff then
+            oldest = item.Value
+            break
+        end
+    end
+
+    if oldest == nil then
+        oldest = stat.History[1] and stat.History[1].Value or stat.Current
+    end
+
+    local amount = stat.Current - oldest
+
+    if amount < 0 then
+        amount = 0
+    end
+
+    return amount
+end
+
+startTracking(StatsTracker.Strength,strengthStat.Value)
+startTracking(StatsTracker.Durability,durabilityStat.Value)
+startTracking(StatsTracker.Rebirths,rebirthsStat.Value)
+
+strengthStat:GetPropertyChangedSignal("Value"):Connect(function()
+    recordStat(StatsTracker.Strength,strengthStat.Value)
+end)
+
+durabilityStat:GetPropertyChangedSignal("Value"):Connect(function()
+    recordStat(StatsTracker.Durability,durabilityStat.Value)
+end)
+
+rebirthsStat:GetPropertyChangedSignal("Value"):Connect(function()
+    recordStat(StatsTracker.Rebirths,rebirthsStat.Value)
+end)
+
+--========================================================
+-- ANTI AFK
+--========================================================
+
+Player.Idled:Connect(function()
+    pcall(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
+end)
+
+--========================================================
+-- REMOVE FORWARD PORTALS
+--========================================================
+
+local function deleteAds()
+    for _,object in ipairs(game:GetDescendants()) do
+        if object.Name == "RobloxForwardPortals" then
+            pcall(function()
+                object:Destroy()
+            end)
+        end
+    end
+end
+
+pcall(deleteAds)
+
+game.DescendantAdded:Connect(function(object)
+    if object.Name == "RobloxForwardPortals" then
+        pcall(function()
+            object:Destroy()
+        end)
+    end
+end)
+
+--========================================================
+-- PET FUNCTIONS
+--========================================================
+
+local function unequipAllPets()
+    local petsFolder = Player:FindFirstChild("petsFolder")
+    if not petsFolder then return end
+
+    local events = ReplicatedStorage:FindFirstChild("rEvents")
+    local equipEvent = events and events:FindFirstChild("equipPetEvent")
+
+    if not equipEvent then return end
+
+    for _,folder in ipairs(petsFolder:GetChildren()) do
+        if folder:IsA("Folder") then
+            for _,pet in ipairs(folder:GetChildren()) do
+                pcall(function()
+                    equipEvent:FireServer("unequipPet",pet)
+                end)
+            end
+        end
+    end
+
+    task.wait(0.1)
+end
+
+local function equipFarmingPets()
+    unequipAllPets()
+
+    local petsFolder = Player:FindFirstChild("petsFolder")
+    local unique = petsFolder and petsFolder:FindFirstChild("Unique")
+
+    local events = ReplicatedStorage:FindFirstChild("rEvents")
+    local equipEvent = events and events:FindFirstChild("equipPetEvent")
+
+    if not unique or not equipEvent then return end
+
+    local omegas,swifts,hounds = {},{},{}
+
+    for _,pet in ipairs(unique:GetChildren()) do
+        if pet.Name == "Omega Overlord" then
+            table.insert(omegas,pet)
+        elseif pet.Name == "Swift Samurai" then
+            table.insert(swifts,pet)
+        elseif pet.Name == "Powercore Hound" then
+            table.insert(hounds,pet)
+        end
+    end
+
+    local equipped = 0
+    local percent = 0
+    local maxSlots = 9
+
+    for i = #omegas,1,-1 do
+        if equipped >= maxSlots then break end
+        if percent < 100 then
+            pcall(function()
+                equipEvent:FireServer("equipPet",omegas[i])
+            end)
+            percent += 20
+            equipped += 1
+        end
+    end
+
+    for i = #swifts,1,-1 do
+        if equipped >= maxSlots then break end
+        if percent < 100 then
+            pcall(function()
+                equipEvent:FireServer("equipPet",swifts[i])
+            end)
+            percent += 15
+            equipped += 1
+        end
+    end
+
+    if percent >= 100 then
+        for i = #hounds,1,-1 do
+            if equipped >= maxSlots then break end
+
+            pcall(function()
+                equipEvent:FireServer("equipPet",hounds[i])
+            end)
+
+            equipped += 1
+        end
+    end
+
+    for i = #omegas,1,-1 do
+        if equipped >= maxSlots then break end
+
+        pcall(function()
+            equipEvent:FireServer("equipPet",omegas[i])
+        end)
+
+        equipped += 1
+    end
+
+    for i = #swifts,1,-1 do
+        if equipped >= maxSlots then break end
+
+        pcall(function()
+            equipEvent:FireServer("equipPet",swifts[i])
+        end)
+
+        equipped += 1
+    end
+end
+
+local function equipRebirthPets()
+    unequipAllPets()
+
+    local petsFolder = Player:FindFirstChild("petsFolder")
+    local unique = petsFolder and petsFolder:FindFirstChild("Unique")
+
+    local events = ReplicatedStorage:FindFirstChild("rEvents")
+    local equipEvent = events and events:FindFirstChild("equipPetEvent")
+
+    if not unique or not equipEvent then return end
+
+    local hydras,tribals = {},{}
+
+    for _,pet in ipairs(unique:GetChildren()) do
+        if pet.Name == "Titanium Hydra" then
+            table.insert(hydras,pet)
+        elseif pet.Name == "Tribal Overlord" then
+            table.insert(tribals,pet)
+        end
+    end
+
+    local equipped = 0
+    local maxSlots = 9
+
+    for _,pet in ipairs(hydras) do
+        if equipped >= maxSlots then break end
+
+        pcall(function()
+            equipEvent:FireServer("equipPet",pet)
+        end)
+
+        equipped += 1
+    end
+
+    for _,pet in ipairs(tribals) do
+        if equipped >= maxSlots then break end
+
+        pcall(function()
+            equipEvent:FireServer("equipPet",pet)
+        end)
+
+        equipped += 1
+    end
+end
+
+--========================================================
+-- FAST REBIRTH
+--========================================================
+
+local function doRebirth()
+    local rebirths = rebirthsStat.Value
+    local target = 5000 + rebirths * 2550
+
+    while Config.FastRebirth and strengthStat.Value < target do
+        local reps =
+            Player.MembershipType == Enum.MembershipType.Premium
+            and 6
+            or 12
+
+        for _ = 1,reps do
+            pcall(function()
+                muscleEvent:FireServer("rep")
+            end)
+        end
+
+        task.wait(0.02)
+    end
+
+    if Config.FastRebirth and strengthStat.Value >= target then
+        equipRebirthPets()
+        task.wait(0.25)
+
+        local before = rebirthsStat.Value
+
+        repeat
+            local events = ReplicatedStorage:FindFirstChild("rEvents")
+            local remote = events and events:FindFirstChild("rebirthRemote")
+
+            if not remote then break end
+
+            pcall(function()
+                remote:InvokeServer("rebirthRequest")
+            end)
+
+            task.wait(0.05)
+
+        until rebirthsStat.Value > before or not Config.FastRebirth
+    end
+end
+
+task.spawn(function()
+    while true do
+        if Config.FastRebirth then
+            pcall(equipFarmingPets)
+            pcall(doRebirth)
+            task.wait(0.5)
+        else
+            task.wait(0.2)
+        end
+    end
+end)
+
+--========================================================
+-- FAST FARM
+--========================================================
+
+local networkStats =
+    game:GetService("Stats").Network.ServerStatsItem["Data Ping"]
+
+local function getPing()
+    local ok,value = pcall(function()
+        return networkStats:GetValue()
+    end)
+
+    return ok and value or 100
+end
+
+local function adaptiveSpeed(ping)
+    if ping < 80 then
+        return 500
+    elseif ping < 150 then
+        return 300
+    elseif ping < 250 then
+        return 100
+    else
+        return 50
+    end
+end
+
+task.spawn(function()
+    local lastUpdate = 0
+    local ping = 100
+
+    while true do
+        if Config.FastFarm then
+
+            if time() - lastUpdate > 0.5 then
+                ping = getPing()
+                lastUpdate = time()
+            end
+
+            local reps
+
+            if Config.ControlledSpeed then
+                reps = adaptiveSpeed(ping)
+            else
+                reps = Config.RepSpeed
+            end
+
+            reps = math.min(reps,Config.RepSpeed)
+
+            local delay =
+                math.clamp(ping / 2500,0.001,0.1)
+
+            for i = 1,reps do
+                if not Config.FastFarm then break end
+
+                pcall(function()
+                    muscleEvent:FireServer("rep")
+                end)
+
+                if i % 500 == 0 then
+                    task.wait()
+                end
+            end
+
+            task.wait(delay)
+        else
+            task.wait(0.1)
+        end
+    end
+end)
+
+--========================================================
+-- SIZE 1
+--========================================================
+
+task.spawn(function()
+    while true do
+        if Config.SetSize1 then
+            local events = ReplicatedStorage:FindFirstChild("rEvents")
+            local remote =
+                events and events:FindFirstChild("changeSpeedSizeRemote")
+
+            if remote then
+                pcall(function()
+                    remote:InvokeServer("changeSize",1)
+                end)
+            end
+
+            task.wait(0.01)
+        else
+            task.wait(0.1)
+        end
+    end
+end)
+
+--========================================================
+-- LOCK POSITION
+--========================================================
+
+local lockedPosition
+
+local function lockPosition()
+    if not Config.LockPosition or not lockedPosition then return end
+
+    local root = getRoot()
+    if not root then return end
+
+    local existing = root:FindFirstChild("PositionLocker")
+
+    if existing then
+        existing.Position = lockedPosition
+    else
+        local body = Instance.new("BodyPosition")
+
+        body.Name = "PositionLocker"
+        body.MaxForce = Vector3.new(math.huge,math.huge,math.huge)
+        body.Position = lockedPosition
+        body.P = 100000
+        body.Parent = root
+    end
+end
+
+local function unlockPosition()
+    local root = getRoot()
+
+    if root then
+        local existing = root:FindFirstChild("PositionLocker")
+        if existing then
+            existing:Destroy()
+        end
+    end
+
+    lockedPosition = nil
+end
+
+task.spawn(function()
+    while true do
+        if Config.LockPosition then
+            lockPosition()
+        end
+        task.wait(0.1)
+    end
+end)
+
+Player.CharacterAdded:Connect(function(char)
+    character = char
+
+    local root = char:WaitForChild("HumanoidRootPart",5)
+
+    if Config.LockPosition and root then
+        lockedPosition = root.Position
+        lockPosition()
+    end
+end)
+
+--========================================================
+-- AUTO ITEMS
+--========================================================
+
+local function useEggs()
+    local boostFolder = Player:FindFirstChild("boostTimersFolder")
+
+    if boostFolder then
+        local boost = boostFolder:FindFirstChild("Protein Egg")
+
+        if boost and boost:IsA("IntValue") and boost.Value >= 5 then
+            return
+        end
+    end
+
+    local char = getCharacter()
+    local tool = char and char:FindFirstChild("Protein Egg")
+
+    if not tool then
+        tool = backpack:FindFirstChild("Protein Egg")
+    end
+
+    if tool then
+        pcall(function()
+            muscleEvent:FireServer("proteinEgg",tool)
+        end)
+    end
+end
+
+task.spawn(function()
+    while true do
+        if Config.AutoEgg then
+            pcall(useEggs)
+            task.wait(1800)
+        else
+            task.wait(1)
+        end
+    end
+end)
+
+local function useShakes()
+    local char = getCharacter()
+    local tool = char and char:FindFirstChild("Tropical Shake")
+
+    if not tool then
+        tool = backpack:FindFirstChild("Tropical Shake")
+    end
+
+    if tool then
+        pcall(function()
+            muscleEvent:FireServer("tropicalShake",tool)
+        end)
+    end
+end
+
+task.spawn(function()
+    while true do
+        if Config.AutoShake then
+            pcall(useShakes)
+            task.wait(450)
+        else
+            task.wait(1)
+        end
+    end
+end)
+
+--========================================================
+-- FORTUNE WHEEL
+--========================================================
+
+task.spawn(function()
+    while true do
+        if Config.AutoSpinWheel then
+            local events = ReplicatedStorage:FindFirstChild("rEvents")
+            local wheelRemote =
+                events and events:FindFirstChild("openFortuneWheelRemote")
+
+            local shared = ReplicatedStorage:FindFirstChild("shared")
+            local catalogs = shared and shared:FindFirstChild("catalogs")
+            local chances =
+                catalogs and catalogs:FindFirstChild("fortuneWheelChances")
+
+            local fortune =
+                chances and chances:FindFirstChild("Fortune Wheel")
+
+            if wheelRemote and fortune then
+                pcall(function()
+                    wheelRemote:InvokeServer(
+                        "openFortuneWheel",
+                        fortune
+                    )
+                end)
+            end
+
+            task.wait(1)
+        else
+            task.wait(0.2)
+        end
+    end
+end)
+
+--========================================================
+-- EXTRA FUNCTIONS
+--========================================================
+
+local function equipBestFastRepPets()
+    unequipAllPets()
+    task.wait(0.2)
+    equipFarmingPets()
+end
+
+local function industrialLift()
+    local root = getRoot()
+    if not root then return end
+
+    root.CFrame = CFrame.new(
+        -5491.68945,81.2379913,4643.85791,
+        0.0425877757,-0.0656917617,0.996930718,
+        8.18951218e-09,0.997836053,0.0657514185,
+        -0.999092758,-0.0028001985,0.0424956195
+    )
+
+    task.wait(0.2)
+
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(true,Enum.KeyCode.E,false,game)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(false,Enum.KeyCode.E,false,game)
+    end)
+end
+
+local function industrialSquat()
+    local root = getRoot()
+    if not root then return end
+
+    root.CFrame = CFrame.new(
+        -5217.25049,89.8445511,5416.01025,
+        -0.99984771,0.00175155443,-0.0173645448,
+        -1.10350671e-08,0.994951069,0.100360937,
+        0.0174526609,0.100345649,-0.994799554
+    )
+
+    task.wait(0.2)
+
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(true,Enum.KeyCode.E,false,game)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(false,Enum.KeyCode.E,false,game)
+    end)
+end
+
+local function antiLag()
+    pcall(function()
+        Lighting.GlobalShadows = false
+        Lighting.FogStart = 9e9
+        Lighting.FogEnd = 9e9
+        Lighting.EnvironmentDiffuseScale = 0
+        Lighting.EnvironmentSpecularScale = 0
+        Lighting.Brightness = 1
+    end)
+
+    for _,sound in ipairs(SoundService:GetDescendants()) do
+        pcall(function()
+            if sound:IsA("Sound") then
+                sound:Stop()
+                sound.Volume = 0
+            end
+        end)
+    end
+
+    pcall(function()
+        RunService:Set3dRenderingEnabled(false)
+    end)
+end
+
+--========================================================
+-- MAIN SCREEN GUI
+--========================================================
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BloodMoonV8"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+
+-- BloodMoon phải nằm TRÊN black screen
+ScreenGui.DisplayOrder = 1000001
+ScreenGui.Parent = GUIParent
+
+--========================================================
+-- MAIN
+--========================================================
+
+local Main = Instance.new("Frame")
+Main.Name = "MainWindow"
+Main.Size = UDim2.new(0,500,0,430)
+Main.Position = UDim2.new(0.5,-250,0.5,-215)
+Main.BackgroundColor3 = COLORS.Main
+Main.BorderSizePixel = 0
+Main.ClipsDescendants = true
+Main.Parent = ScreenGui
+
+corner(Main,10)
+stroke(Main,COLORS.Border,1.5)
+
+local function updateSize()
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+
+    local viewport = camera.ViewportSize
+
+    if viewport.X < 700 then
+        local width = math.min(viewport.X - 30,470)
+        local height = math.min(viewport.Y - 70,600)
+
+        Main.Size = UDim2.new(0,width,0,height)
+        Main.Position = UDim2.new(
+            0.5,-width/2,
+            0.5,-height/2
+        )
+    else
+        Main.Size = UDim2.new(0,500,0,430)
+        Main.Position = UDim2.new(0.5,-250,0.5,-215)
+    end
+end
+
+updateSize()
+
+if workspace.CurrentCamera then
+    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateSize)
+end
+
+--========================================================
+-- HEADER
+--========================================================
+
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1,0,0,50)
+Header.BackgroundColor3 = COLORS.Header
+Header.BorderSizePixel = 0
+Header.Parent = Main
+
+local HeaderGradient = Instance.new("UIGradient")
+HeaderGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0,COLORS.Header2),
+    ColorSequenceKeypoint.new(1,COLORS.Header)
+})
+HeaderGradient.Parent = Header
+
+local Logo = Instance.new("Frame")
+Logo.Size = UDim2.new(0,34,0,34)
+Logo.Position = UDim2.new(0,9,0.5,-17)
+Logo.BackgroundColor3 = Color3.fromRGB(115,5,10)
+Logo.BorderSizePixel = 0
+Logo.Parent = Header
+
+corner(Logo,17)
+stroke(Logo,COLORS.Border,1)
+
+local LogoText = textLabel(
+    Logo,
+    "B",
+    20,
+    Enum.Font.GothamBlack
+)
+
+LogoText.Size = UDim2.fromScale(1,1)
+LogoText.TextXAlignment = Enum.TextXAlignment.Center
+LogoText.TextColor3 = COLORS.RedText
+
+local Title = textLabel(
+    Header,
+    "BloodMoon V8",
+    18,
+    Enum.Font.GothamBold
+)
+
+Title.Position = UDim2.new(0,53,0,2)
+Title.Size = UDim2.new(1,-105,0,27)
+Title.TextColor3 = COLORS.RedText
+
+local Subtitle = textLabel(
+    Header,
+    "Library",
+    10,
+    Enum.Font.Gotham
+)
+
+Subtitle.Position = UDim2.new(0,54,0,27)
+Subtitle.Size = UDim2.new(1,-105,0,15)
+Subtitle.TextColor3 = COLORS.SubText
+
+local Minimize = Instance.new("TextButton")
+Minimize.Size = UDim2.new(0,34,0,34)
+Minimize.Position = UDim2.new(1,-42,0.5,-17)
+Minimize.BackgroundColor3 = Color3.fromRGB(35,3,5)
+Minimize.BorderSizePixel = 0
+Minimize.Text = "—"
+Minimize.TextColor3 = COLORS.RedText
+Minimize.TextSize = 20
+Minimize.Font = Enum.Font.GothamBold
+Minimize.AutoButtonColor = false
+Minimize.Parent = Header
+
+corner(Minimize,7)
+stroke(Minimize,COLORS.Border,1)
+
+--========================================================
+-- DRAG MAIN
+--========================================================
+
+local dragging = false
+local dragStart
+local startPosition
+
+Header.InputBegan:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+
+        dragging = true
+        dragStart = input.Position
+        startPosition = Main.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if dragging and (
+        input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch
+    ) then
+
+        local delta = input.Position - dragStart
+
+        Main.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+--========================================================
+-- BODY / TABS
+--========================================================
+
+local Body = Instance.new("Frame")
+Body.Position = UDim2.new(0,0,0,50)
+Body.Size = UDim2.new(1,0,1,-50)
+Body.BackgroundTransparency = 1
+Body.Parent = Main
+
+local TabBar = Instance.new("ScrollingFrame")
+TabBar.Size = UDim2.new(1,0,0,42)
+TabBar.BackgroundColor3 = Color3.fromRGB(20,2,4)
+TabBar.BorderSizePixel = 0
+TabBar.ScrollBarThickness = 2
+TabBar.ScrollingDirection = Enum.ScrollingDirection.X
+TabBar.AutomaticCanvasSize = Enum.AutomaticSize.X
+TabBar.CanvasSize = UDim2.new(0,0,0,0)
+TabBar.Parent = Body
+
+local TabLayout = Instance.new("UIListLayout")
+TabLayout.FillDirection = Enum.FillDirection.Horizontal
+TabLayout.Padding = UDim.new(0,4)
+TabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+TabLayout.Parent = TabBar
+
+local TabPadding = Instance.new("UIPadding")
+TabPadding.PaddingLeft = UDim.new(0,7)
+TabPadding.PaddingRight = UDim.new(0,7)
+TabPadding.Parent = TabBar
+
+local Content = Instance.new("Frame")
+Content.Position = UDim2.new(0,0,0,42)
+Content.Size = UDim2.new(1,0,1,-42)
+Content.BackgroundTransparency = 1
+Content.Parent = Body
+
+--========================================================
+-- LIBRARY
+--========================================================
+
+local Library = {
+    Tabs = {},
+    CurrentTab = nil,
+    Minimized = false
+}
+
+function Library:AddTab(name)
+
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(0,95,0,32)
+    Button.BackgroundColor3 = COLORS.Tab
+    Button.BorderSizePixel = 0
+    Button.Text = name
+    Button.TextColor3 = COLORS.SubText
+    Button.TextSize = 13
+    Button.Font = Enum.Font.GothamBold
+    Button.AutoButtonColor = false
+    Button.Parent = TabBar
+
+    corner(Button,6)
+
+    local Page = Instance.new("ScrollingFrame")
+    Page.Size = UDim2.new(1,-12,1,-12)
+    Page.Position = UDim2.new(0,6,0,6)
+    Page.BackgroundTransparency = 1
+    Page.BorderSizePixel = 0
+    Page.ScrollBarThickness = 3
+    Page.Visible = false
+    Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Page.CanvasSize = UDim2.new(0,0,0,0)
+    Page.Parent = Content
+
+    local Padding = Instance.new("UIPadding")
+    Padding.PaddingLeft = UDim.new(0,5)
+    Padding.PaddingRight = UDim.new(0,5)
+    Padding.PaddingTop = UDim.new(0,5)
+    Padding.PaddingBottom = UDim.new(0,8)
+    Padding.Parent = Page
+
+    local Layout = Instance.new("UIListLayout")
+    Layout.Padding = UDim.new(0,6)
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    Layout.Parent = Page
+
+    local Tab = {
+        Name = name,
+        Button = Button,
+        Page = Page
+    }
+
+    function Tab:Show()
+
+        for _,other in ipairs(Library.Tabs) do
+            other.Page.Visible = false
+            other.Button.BackgroundColor3 = COLORS.Tab
+            other.Button.TextColor3 = COLORS.SubText
+        end
+
+        Page.Visible = true
+        Button.BackgroundColor3 = COLORS.TabActive
+        Button.TextColor3 = COLORS.RedText
+        Library.CurrentTab = Tab
+    end
+
+    function Tab:AddLabel(text)
+
+        local Label = textLabel(
+            Page,
+            text,
+            14,
+            Enum.Font.GothamSemibold
+        )
+
+        Label.Size = UDim2.new(1,-5,0,30)
+
+        return Label
+    end
+
+    function Tab:AddSection(text)
+
+        local Section = Instance.new("Frame")
+        Section.Size = UDim2.new(1,-5,0,32)
+        Section.BackgroundColor3 = COLORS.Section
+        Section.BorderSizePixel = 0
+        Section.Parent = Page
+
+        corner(Section,6)
+        stroke(Section,Color3.fromRGB(100,8,12),1)
+
+        local Line = Instance.new("Frame")
+        Line.Size = UDim2.new(0,3,1,-8)
+        Line.Position = UDim2.new(0,5,0,4)
+        Line.BackgroundColor3 = COLORS.RedText
+        Line.BorderSizePixel = 0
+        Line.Parent = Section
+
+        corner(Line,2)
+
+        local Label = textLabel(
+            Section,
+            text,
+            14,
+            Enum.Font.GothamBold
+        )
+
+        Label.Position = UDim2.new(0,16,0,0)
+        Label.Size = UDim2.new(1,-20,1,0)
+        Label.TextColor3 = COLORS.RedText
+
+        return Section
+    end
+
+    function Tab:AddButton(text,callback)
+
+        local Button = Instance.new("TextButton")
+        Button.Size = UDim2.new(1,-5,0,40)
+        Button.BackgroundColor3 = COLORS.Element
+        Button.BorderSizePixel = 0
+        Button.Text = text
+        Button.TextColor3 = COLORS.Text
+        Button.TextSize = 14
+        Button.Font = Enum.Font.GothamSemibold
+        Button.TextXAlignment = Enum.TextXAlignment.Left
+        Button.AutoButtonColor = false
+        Button.Parent = Page
+
+        corner(Button,7)
+        stroke(Button,Color3.fromRGB(90,8,12),1)
+
+        local pad = Instance.new("UIPadding")
+        pad.PaddingLeft = UDim.new(0,13)
+        pad.Parent = Button
+
+        Button.Activated:Connect(function()
+
+            TweenService:Create(
+                Button,
+                TweenInfo.new(0.08),
+                {
+                    BackgroundColor3 = COLORS.ButtonHover
+                }
+            ):Play()
+
+            task.delay(0.1,function()
+
+                if Button.Parent then
+
+                    TweenService:Create(
+                        Button,
+                        TweenInfo.new(0.12),
+                        {
+                            BackgroundColor3 = COLORS.Element
+                        }
+                    ):Play()
+
+                end
+            end)
+
+            if callback then
+                task.spawn(callback)
+            end
+        end)
+
+        return Button
+    end
+
+    function Tab:AddSwitch(text,callback)
+
+        local Holder = Instance.new("Frame")
+        Holder.Size = UDim2.new(1,-5,0,42)
+        Holder.BackgroundColor3 = COLORS.Element
+        Holder.BorderSizePixel = 0
+        Holder.Parent = Page
+
+        corner(Holder,7)
+        stroke(Holder,Color3.fromRGB(90,8,12),1)
+
+        local Label = textLabel(
+            Holder,
+            text,
+            14,
+            Enum.Font.GothamSemibold
+        )
+
+        Label.Position = UDim2.new(0,12,0,0)
+        Label.Size = UDim2.new(1,-75,1,0)
+
+        local Toggle = Instance.new("TextButton")
+        Toggle.Size = UDim2.new(0,46,0,24)
+        Toggle.Position = UDim2.new(1,-56,0.5,-12)
+        Toggle.BackgroundColor3 = COLORS.SwitchOff
+        Toggle.BorderSizePixel = 0
+        Toggle.Text = ""
+        Toggle.AutoButtonColor = false
+        Toggle.Parent = Holder
+
+        corner(Toggle,12)
+
+        local Circle = Instance.new("Frame")
+        Circle.Size = UDim2.new(0,18,0,18)
+        Circle.Position = UDim2.new(0,3,0.5,-9)
+        Circle.BackgroundColor3 = Color3.fromRGB(235,235,235)
+        Circle.BorderSizePixel = 0
+        Circle.Parent = Toggle
+
+        corner(Circle,9)
+
+        local state = false
+
+        local Switch = {}
+
+        function Switch:Set(value)
+
+            state = value == true
+
+            if state then
+
+                TweenService:Create(
+                    Toggle,
+                    TweenInfo.new(0.15),
+                    {
+                        BackgroundColor3 = COLORS.SwitchOn
+                    }
+                ):Play()
+
+                TweenService:Create(
+                    Circle,
+                    TweenInfo.new(0.15),
+                    {
+                        Position = UDim2.new(1,-21,0.5,-9)
+                    }
+                ):Play()
+
+            else
+
+                TweenService:Create(
+                    Toggle,
+                    TweenInfo.new(0.15),
+                    {
+                        BackgroundColor3 = COLORS.SwitchOff
+                    }
+                ):Play()
+
+                TweenService:Create(
+                    Circle,
+                    TweenInfo.new(0.15),
+                    {
+                        Position = UDim2.new(0,3,0.5,-9)
+                    }
+                ):Play()
+
+            end
+
+            if callback then
+                task.spawn(callback,state)
+            end
+        end
+
+        function Switch:Get()
+            return state
+        end
+
+        Toggle.Activated:Connect(function()
+            Switch:Set(not state)
+        end)
+
+        return Switch
+    end
+
+    function Tab:AddTextBox(text,callback)
+
+        local Holder = Instance.new("Frame")
+        Holder.Size = UDim2.new(1,-5,0,42)
+        Holder.BackgroundColor3 = COLORS.Element
+        Holder.BorderSizePixel = 0
+        Holder.Parent = Page
+
+        corner(Holder,7)
+        stroke(Holder,COLORS.Border,1)
+
+        local Label = textLabel(
+            Holder,
+            text,
+            13,
+            Enum.Font.GothamSemibold
+        )
+
+        Label.Position = UDim2.new(0,11,0,0)
+        Label.Size = UDim2.new(0.45,0,1,0)
+
+        local Box = Instance.new("TextBox")
+        Box.Size = UDim2.new(0.45,0,0,28)
+        Box.Position = UDim2.new(0.51,0,0.5,-14)
+        Box.BackgroundColor3 = Color3.fromRGB(20,2,4)
+        Box.BorderSizePixel = 0
+        Box.Text = ""
+        Box.PlaceholderText = "Enter..."
+        Box.PlaceholderColor3 = Color3.fromRGB(130,100,100)
+        Box.TextColor3 = COLORS.Text
+        Box.TextSize = 13
+        Box.Font = Enum.Font.Gotham
+        Box.ClearTextOnFocus = false
+        Box.Parent = Holder
+
+        corner(Box,6)
+        stroke(Box,COLORS.Border,1)
+
+        Box.FocusLost:Connect(function()
+
+            if callback then
+                task.spawn(callback,Box.Text)
+            end
+
+        end)
+
+        return Box
+    end
+
+    function Tab:AddSpace(height)
+
+        local Space = Instance.new("Frame")
+        Space.Size = UDim2.new(1,0,0,height or 6)
+        Space.BackgroundTransparency = 1
+        Space.Parent = Page
+
+        return Space
+    end
+
+    table.insert(Library.Tabs,Tab)
+
+    Button.Activated:Connect(function()
+        Tab:Show()
+    end)
+
+    if not Library.CurrentTab then
+        Tab:Show()
+    end
+
+    return Tab
+end
+
+--========================================================
+-- TABS
+--========================================================
+
+local MainTab = Library:AddTab("Main")
+local RebirthTab = Library:AddTab("Rebirths")
+local FarmTab = Library:AddTab("Farming")
+local MiscTab = Library:AddTab("Misc")
+local SettingsTab = Library:AddTab("Settings")
+
+--========================================================
+-- MAIN
+--========================================================
+
+MainTab:AddSection("BloodMoon V8")
+MainTab:AddLabel("BloodMoon V8")
+MainTab:AddLabel("Live Statistics")
+
+--========================================================
+-- STATS CARD
+--========================================================
+
+local function createStatCard(title)
+
+    local Card = Instance.new("Frame")
+
+    Card.Size = UDim2.new(1,-5,0,108)
+    Card.BackgroundColor3 = COLORS.Element
+    Card.BorderSizePixel = 0
+    Card.Parent = MainTab.Page
+
+    corner(Card,7)
+    stroke(Card,Color3.fromRGB(100,8,12),1)
+
+    local Title = textLabel(
+        Card,
+        title,
+        15,
+        Enum.Font.GothamBold
+    )
+
+    Title.Position = UDim2.new(0,12,0,5)
+    Title.Size = UDim2.new(1,-24,0,23)
+    Title.TextColor3 = COLORS.RedText
+
+    local Period = textLabel(
+        Card,
+        "1 Hour: +0 / 1 Day: +0 / 1 Week: +0",
+        12,
+        Enum.Font.GothamSemibold
+    )
+
+    Period.Position = UDim2.new(0,12,0,31)
+    Period.Size = UDim2.new(1,-24,0,22)
+    Period.TextColor3 = COLORS.SubText
+
+    local Current = textLabel(
+        Card,
+        "Hiện tại: 0",
+        12,
+        Enum.Font.GothamSemibold
+    )
+
+    Current.Position = UDim2.new(0,12,0,57)
+    Current.Size = UDim2.new(0.5,-12,0,22)
+    Current.TextColor3 = COLORS.Text
+
+    local Received = textLabel(
+        Card,
+        "Cài được: +0",
+        12,
+        Enum.Font.GothamSemibold
+    )
+
+    Received.Position = UDim2.new(0.5,0,0,57)
+    Received.Size = UDim2.new(0.5,-12,0,22)
+    Received.TextColor3 = COLORS.RedText
+
+    return {
+        Card = Card,
+        Period = Period,
+        Current = Current,
+        Received = Received
+    }
+end
+
+local StrengthCard = createStatCard("Strengths")
+local DurabilityCard = createStatCard("Durability")
+local RebirthCard = createStatCard("Rebirths")
+
+local function updateCard(card,stat)
+
+    local hour = receivedPeriod(stat,60 * 60)
+    local day = receivedPeriod(stat,60 * 60 * 24)
+    local week = receivedPeriod(stat,60 * 60 * 24 * 7)
+
+    card.Period.Text =
+        "1 Hour: +" .. formatNumber(hour) ..
+        " / 1 Day: +" .. formatNumber(day) ..
+        " / 1 Week: +" .. formatNumber(week)
+
+    card.Current.Text =
+        "Hiện tại: " .. formatNumber(stat.Current)
+
+    card.Received.Text =
+        "Cài được: +" .. formatNumber(stat.Received)
+end
+
+task.spawn(function()
+
+    while ScreenGui.Parent do
+
+        pcall(function()
+
+            updateCard(
+                StrengthCard,
+                StatsTracker.Strength
+            )
+
+            updateCard(
+                DurabilityCard,
+                StatsTracker.Durability
+            )
+
+            updateCard(
+                RebirthCard,
+                StatsTracker.Rebirths
+            )
+
+        end)
+
+        task.wait(0.5)
+    end
+end)
+
+MainTab:AddButton(
+    "Equip Best Fast Rep Pets",
+    function()
+        pcall(equipBestFastRepPets)
+    end
+)
+
+--========================================================
+-- REBIRTHS
+--========================================================
+
+RebirthTab:AddSection("Rebirths")
+
+RebirthTab:AddSwitch(
+    "Fast Rebirth",
+    function(state)
+        Config.FastRebirth = state
+    end
+)
+
+RebirthTab:AddButton(
+    "Equip Rebirth Pets",
+    function()
+        pcall(equipRebirthPets)
+    end
+)
+
+--========================================================
+-- FARMING
+--========================================================
+
+FarmTab:AddSection("Farming")
+
+FarmTab:AddSwitch(
+    "Fast Farm",
+    function(state)
+        Config.FastFarm = state
+    end
+)
+
+FarmTab:AddSwitch(
+    "Controlled Speed",
+    function(state)
+        Config.ControlledSpeed = state
+    end
+)
+
+FarmTab:AddTextBox(
+    "Rep Speed",
+    function(value)
+
+        value = tonumber(value)
+
+        if value then
+
+            Config.RepSpeed = math.clamp(
+                math.floor(value),
+                1,
+                1000
+            )
+
+        end
+    end
+)
+
+FarmTab:AddSwitch(
+    "Set Size 1",
+    function(state)
+        Config.SetSize1 = state
+    end
+)
+
+FarmTab:AddSwitch(
+    "Lock Position",
+    function(state)
+
+        Config.LockPosition = state
+
+        if state then
+
+            local root = getRoot()
+
+            if root then
+                lockedPosition = root.Position
+            end
+
+            lockPosition()
+
+        else
+
+            unlockPosition()
+
+        end
+    end
+)
+
+FarmTab:AddButton(
+    "Equip Best Rep Pets",
+    function()
+        pcall(equipBestFastRepPets)
+    end
+)
+
+--========================================================
+-- MISC
+--========================================================
+
+MiscTab:AddSection("Misc")
+
+MiscTab:AddSwitch(
+    "Auto Protein Egg",
+    function(state)
+
+        Config.AutoEgg = state
+
+        if state then
+            task.spawn(useEggs)
+        end
+    end
+)
+
+MiscTab:AddSwitch(
+    "Auto Tropical Shake",
+    function(state)
+
+        Config.AutoShake = state
+
+        if state then
+            task.spawn(useShakes)
+        end
+    end
+)
+
+MiscTab:AddSwitch(
+    "Auto Fortune Wheel",
+    function(state)
+        Config.AutoSpinWheel = state
+    end
+)
+
+MiscTab:AddButton(
+    "Industrial Lift",
+    function()
+        pcall(industrialLift)
+    end
+)
+
+MiscTab:AddButton(
+    "Industrial Squat",
+    function()
+        pcall(industrialSquat)
+    end
+)
+
+MiscTab:AddButton(
+    "Use Protein Egg",
+    function()
+        pcall(useEggs)
+    end
+)
+
+MiscTab:AddButton(
+    "Use Tropical Shake",
+    function()
+        pcall(useShakes)
+    end
+)
+
+--========================================================
+-- HIDE STATS
+--========================================================
+
+local HiddenGuiStates = {}
+local HideStatsConnection
+
+local function isBloodMoonGui(object)
+
+    if not object then
+        return true
+    end
+
+    if object == ScreenGui then
+        return true
+    end
+
+    return string.find(
+        string.lower(object.Name),
+        "bloodmoon"
+    ) ~= nil
+end
+
+local function hideGameStats()
+
+    table.clear(HiddenGuiStates)
+
+    local playerGui = Player:FindFirstChild("PlayerGui")
+
+    if playerGui then
+
+        for _,object in ipairs(playerGui:GetChildren()) do
+
+            if object:IsA("ScreenGui")
+            and not isBloodMoonGui(object) then
+
+                HiddenGuiStates[object] = object.Enabled
+                object.Enabled = false
+            end
+        end
+
+        if HideStatsConnection then
+            HideStatsConnection:Disconnect()
+        end
+
+        HideStatsConnection =
+            playerGui.ChildAdded:Connect(function(object)
+
+                if not Config.HideStats then
+                    return
+                end
+
+                if object:IsA("ScreenGui")
+                and not isBloodMoonGui(object) then
+
+                    HiddenGuiStates[object] = object.Enabled
+                    object.Enabled = false
+                end
+            end)
+    end
+end
+
+local function showGameStats()
+
+    if HideStatsConnection then
+        HideStatsConnection:Disconnect()
+        HideStatsConnection = nil
+    end
+
+    for object,state in pairs(HiddenGuiStates) do
+
+        if object and object.Parent then
+
+            pcall(function()
+                object.Enabled = state
+            end)
+
+        end
+    end
+
+    table.clear(HiddenGuiStates)
+end
+
+--========================================================
+-- BLACK SCREEN SYSTEM
+--========================================================
+-- IMPORTANT:
+-- BlackBackground nằm DƯỚI BloodMoon V8.
+-- FloatingButton + LoadingEffect nằm TRÊN BloodMoon.
+-- Vì vậy menu BloodMoon vẫn sử dụng được khi màn hình đen.
+--========================================================
+
+local BlackScreenGui = Instance.new("ScreenGui")
+BlackScreenGui.Name = "BloodMoonBlackScreen"
+BlackScreenGui.ResetOnSpawn = false
+BlackScreenGui.IgnoreGuiInset = true
+BlackScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+
+-- thấp hơn BloodMoon
+BlackScreenGui.DisplayOrder = 1000000
+BlackScreenGui.Parent = GUIParent
+
+--========================================================
+-- BLACK BACKGROUND
+--========================================================
+
+local BlackBackground = Instance.new("Frame")
+BlackBackground.Name = "BlackBackground"
+BlackBackground.Size = UDim2.fromScale(1,1)
+BlackBackground.Position = UDim2.fromScale(0,0)
+BlackBackground.BackgroundColor3 = Color3.fromRGB(0,0,0)
+BlackBackground.BackgroundTransparency = 1
+BlackBackground.BorderSizePixel = 0
+
+-- thấp
+BlackBackground.ZIndex = 1
+BlackBackground.Parent = BlackScreenGui
+
+--========================================================
+-- FLOATING CONTROL BUTTON
+--========================================================
+
+local BlackButton = Instance.new("TextButton")
+BlackButton.Name = "BlackScreenButton"
+
+BlackButton.Size = UDim2.fromOffset(115,38)
+BlackButton.Position = UDim2.new(
+    0,
+    15,
+    1,
+    -65
+)
+
+BlackButton.BackgroundColor3 = Color3.fromRGB(18,2,3)
+BlackButton.BorderSizePixel = 0
+BlackButton.Text = "BLACK: OFF"
+BlackButton.TextColor3 = COLORS.RedText
+BlackButton.TextSize = 12
+BlackButton.Font = Enum.Font.GothamBold
+BlackButton.AutoButtonColor = false
+BlackButton.Visible = false
+
+-- cao hơn BloodMoon để luôn bấm được
+BlackButton.ZIndex = 100
+BlackButton.Parent = BlackScreenGui
+
+corner(BlackButton,8)
+stroke(BlackButton,COLORS.Border,1.5)
+
+--========================================================
+-- BUTTON DRAG
+--========================================================
+
+local blackButtonDragging = false
+local blackButtonDragStart
+local blackButtonStartPosition
+local blackButtonMoved = false
+
+BlackButton.InputBegan:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+
+        blackButtonDragging = true
+        blackButtonMoved = false
+
+        blackButtonDragStart = input.Position
+        blackButtonStartPosition = BlackButton.Position
+
+        input.Changed:Connect(function()
+
+            if input.UserInputState == Enum.UserInputState.End then
+                blackButtonDragging = false
+            end
+
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if blackButtonDragging and (
+        input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch
+    ) then
+
+        local delta =
+            input.Position - blackButtonDragStart
+
+        if math.abs(delta.X) > 5
+        or math.abs(delta.Y) > 5 then
+
+            blackButtonMoved = true
+        end
+
+        BlackButton.Position = UDim2.new(
+            blackButtonStartPosition.X.Scale,
+            blackButtonStartPosition.X.Offset + delta.X,
+
+            blackButtonStartPosition.Y.Scale,
+            blackButtonStartPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+--========================================================
+-- LOADING EFFECT
+--========================================================
+
+local LoadingEffect = Instance.new("Frame")
+
+LoadingEffect.Name = "LoadingEffect"
+LoadingEffect.Size = UDim2.fromOffset(270,270)
+LoadingEffect.Position = UDim2.fromScale(0.5,0.5)
+LoadingEffect.AnchorPoint = Vector2.new(0.5,0.5)
+LoadingEffect.BackgroundTransparency = 1
+LoadingEffect.Visible = false
+
+LoadingEffect.ZIndex = 200
+LoadingEffect.Parent = BlackScreenGui
+
+--========================================================
+-- CIRCLE
+--========================================================
+
+local LoadingCircle = Instance.new("Frame")
+
+LoadingCircle.Name = "LoadingCircle"
+LoadingCircle.Size = UDim2.fromOffset(155,155)
+LoadingCircle.Position = UDim2.fromScale(0.5,0.5)
+LoadingCircle.AnchorPoint = Vector2.new(0.5,0.5)
+LoadingCircle.BackgroundTransparency = 1
+LoadingCircle.BorderSizePixel = 0
+
+LoadingCircle.ZIndex = 201
+LoadingCircle.Parent = LoadingEffect
+
+corner(LoadingCircle,100)
+
+local LoadingStroke = Instance.new("UIStroke")
+
+LoadingStroke.Color = Color3.fromRGB(255,0,0)
+LoadingStroke.Thickness = 5
+LoadingStroke.Transparency = 1
+
+LoadingStroke.Parent = LoadingCircle
+
+--========================================================
+-- LOADING TEXT
+--========================================================
+
+local LoadingText = Instance.new("TextLabel")
+
+LoadingText.Name = "LoadingText"
+LoadingText.Size = UDim2.fromScale(1,1)
+LoadingText.Position = UDim2.fromScale(0,0)
+
+LoadingText.BackgroundTransparency = 1
+LoadingText.BorderSizePixel = 0
+
+LoadingText.Text = "LOADING..."
+LoadingText.TextColor3 = Color3.fromRGB(255,0,0)
+LoadingText.TextSize = 22
+LoadingText.Font = Enum.Font.GothamBold
+
+LoadingText.TextTransparency = 1
+LoadingText.TextStrokeColor3 = Color3.fromRGB(80,0,0)
+LoadingText.TextStrokeTransparency = 1
+
+LoadingText.TextXAlignment = Enum.TextXAlignment.Center
+LoadingText.TextYAlignment = Enum.TextYAlignment.Center
+
+LoadingText.ZIndex = 202
+LoadingText.Parent = LoadingEffect
+
+--========================================================
+-- BLACK STATE
+--========================================================
+
+local blackBusy = false
+
+--========================================================
+-- SHOW LOADING
+--========================================================
+
+local function showLoading()
+
+    LoadingEffect.Visible = true
+
+    LoadingStroke.Transparency = 1
+    LoadingText.TextTransparency = 1
+    LoadingText.TextStrokeTransparency = 1
+
+    local circleIn = TweenService:Create(
+        LoadingStroke,
+        TweenInfo.new(
+            0.2,
+            Enum.EasingStyle.Quad,
+            Enum.EasingDirection.Out
+        ),
+        {
+            Transparency = 0
+        }
+    )
+
+    local textIn = TweenService:Create(
+        LoadingText,
+        TweenInfo.new(
+            0.2,
+            Enum.EasingStyle.Quad,
+            Enum.EasingDirection.Out
+        ),
+        {
+            TextTransparency = 0,
+            TextStrokeTransparency = 0.4
+        }
+    )
+
+    circleIn:Play()
+    textIn:Play()
+end
+
+--========================================================
+-- HIDE LOADING
+--========================================================
+
+local function hideLoading()
+
+    local circleOut = TweenService:Create(
+        LoadingStroke,
+        TweenInfo.new(
+            0.2,
+            Enum.EasingStyle.Quad,
+            Enum.EasingDirection.Out
+        ),
+        {
+            Transparency = 1
+        }
+    )
+
+    local textOut = TweenService:Create(
+        LoadingText,
+        TweenInfo.new(
+            0.2,
+            Enum.EasingStyle.Quad,
+            Enum.EasingDirection.Out
+        ),
+        {
+            TextTransparency = 1,
+            TextStrokeTransparency = 1
+        }
+    )
+
+    circleOut:Play()
+    textOut:Play()
+
+    task.wait(0.2)
+
+    LoadingEffect.Visible = false
+end
+
+--========================================================
+-- UPDATE FLOAT BUTTON
+--========================================================
+
+local function updateBlackButton()
+
+    if Config.BlackScreenActive then
+
+        BlackButton.Text = "BLACK: ON"
+        BlackButton.BackgroundColor3 =
+            Color3.fromRGB(55,3,5)
+
+    else
+
+        BlackButton.Text = "BLACK: OFF"
+        BlackButton.BackgroundColor3 =
+            Color3.fromRGB(18,2,3)
+
+    end
+end
+
+--========================================================
+-- TURN BLACK
+--========================================================
+
+local function turnBlack()
+
+    if blackBusy then
+        return
+    end
+
+    if Config.BlackScreenActive then
+        return
+    end
+
+    blackBusy = true
+
+    Config.BlackScreenActive = true
+    updateBlackButton()
+
+    -- chắc chắn bắt đầu từ sáng
+    BlackBackground.BackgroundTransparency = 1
+
+    LoadingEffect.Rotation = 0
+    showLoading()
+
+    --====================================================
+    -- XOAY 180° TRONG ĐÚNG 2 GIÂY
+    --====================================================
+
+    local rotation = TweenService:Create(
+        LoadingEffect,
+        TweenInfo.new(
+            2,
+            Enum.EasingStyle.Linear,
+            Enum.EasingDirection.InOut
+        ),
+        {
+            Rotation = 180
+        }
+    )
+
+    rotation:Play()
+
+    -- Chờ đủ 2 giây
+    rotation.Completed:Wait()
+
+    --====================================================
+    -- SAU KHI XOAY XONG -> ĐEN DẦN
+    --====================================================
+
+    local fadeBlack = TweenService:Create(
+        BlackBackground,
+        TweenInfo.new(
+            0.8,
+            Enum.EasingStyle.Quad,
+            Enum.EasingDirection.Out
+        ),
+        {
+            BackgroundTransparency = 0
+        }
+    )
+
+    fadeBlack:Play()
+    fadeBlack.Completed:Wait()
+
+    hideLoading()
+
+    LoadingEffect.Rotation = 0
+
+    blackBusy = false
+end
+
+--========================================================
+-- TURN BRIGHT
+--========================================================
+
+local function turnBright()
+
+    if blackBusy then
+        return
+    end
+
+    if not Config.BlackScreenActive then
+        return
+    end
+
+    blackBusy = true
+
+    --====================================================
+    -- HIỆN LOADING TRƯỚC
+    --====================================================
+
+    LoadingEffect.Rotation = 180
+
+    showLoading()
+
+    --====================================================
+    -- XOAY NGƯỢC 180° TRONG ĐÚNG 2 GIÂY
+    --====================================================
+
+    local rotation = TweenService:Create(
+        LoadingEffect,
+        TweenInfo.new(
+            2,
+            Enum.EasingStyle.Linear,
+            Enum.EasingDirection.InOut
+        ),
+        {
+            Rotation = 0
+        }
+    )
+
+    rotation:Play()
+
+    rotation.Completed:Wait()
+
+    --====================================================
+    -- SÁNG DẦN
+    --====================================================
+
+    local fadeClear = TweenService:Create(
+        BlackBackground,
+        TweenInfo.new(
+            0.8,
+            Enum.EasingStyle.Quad,
+            Enum.EasingDirection.Out
+        ),
+        {
+            BackgroundTransparency = 1
+        }
+    )
+
+    fadeClear:Play()
+    fadeClear.Completed:Wait()
+
+    Config.BlackScreenActive = false
+    updateBlackButton()
+
+    hideLoading()
+
+    blackBusy = false
+end
+
+--========================================================
+-- TOGGLE BLACK SCREEN
+--========================================================
+
+local function toggleBlackScreen()
+
+    if blackBusy then
+        return
+    end
+
+    if Config.BlackScreenActive then
+        turnBright()
+    else
+        turnBlack()
+    end
+end
+
+--========================================================
+-- FLOAT BUTTON CLICK
+--========================================================
+
+BlackButton.Activated:Connect(function()
+
+    -- Nếu người dùng đang kéo thì không click
+    if blackButtonMoved then
+        blackButtonMoved = false
+        return
+    end
+
+    if not Config.BlackScreen then
+        return
+    end
+
+    task.spawn(function()
+        toggleBlackScreen()
+    end)
+end)
+
+--========================================================
+-- BLACK SCREEN ENABLE / DISABLE
+--========================================================
+
+local function enableBlackSystem()
+
+    Config.BlackScreen = true
+
+    BlackButton.Visible = true
+
+    updateBlackButton()
+end
+
+local function disableBlackSystem()
+
+    Config.BlackScreen = false
+
+    -- Nếu đang loading thì không phá animation giữa chừng
+    if blackBusy then
+
+        task.spawn(function()
+
+            while blackBusy do
+                task.wait()
+            end
+
+            if not Config.BlackScreen then
+
+                if Config.BlackScreenActive then
+                    turnBright()
+                end
+
+                BlackButton.Visible = false
+            end
+
+        end)
+
+        return
+    end
+
+    if Config.BlackScreenActive then
+        turnBright()
+    end
+
+    BlackButton.Visible = false
+    BlackBackground.BackgroundTransparency = 1
+    LoadingEffect.Visible = false
+    LoadingEffect.Rotation = 0
+
+    Config.BlackScreenActive = false
+
+    updateBlackButton()
+end
+
+local function setBlackScreen(state)
+
+    state = state == true
+
+    if state then
+        enableBlackSystem()
+    else
+        disableBlackSystem()
+    end
+end
+
+--========================================================
+-- SETTINGS
+--========================================================
+
+SettingsTab:AddSection("Settings")
+
+SettingsTab:AddSwitch(
+    "Hide Stats",
+    function(state)
+
+        Config.HideStats = state
+
+        if state then
+            hideGameStats()
+        else
+            showGameStats()
+        end
+    end
+)
+
+SettingsTab:AddSwitch(
+    "Black Screen",
+    function(state)
+
+        -- Chỉ bật/tắt NÚT điều khiển.
+        -- Muốn chuyển sang đen phải bấm nút nổi.
+
+        setBlackScreen(state)
+
+    end
+)
+
+SettingsTab:AddButton(
+    "Anti Lag",
+    function()
+        pcall(antiLag)
+    end
+)
+
+SettingsTab:AddButton(
+    "Restore Rendering",
+    function()
+
+        pcall(function()
+            RunService:Set3dRenderingEnabled(true)
+        end)
+
+    end
+)
+
+--========================================================
+-- MINIMIZED BAR
+--========================================================
+
+local MiniBar = Instance.new("TextButton")
+
+MiniBar.Name = "MiniBar"
+MiniBar.Size = UDim2.new(0,180,0,38)
+MiniBar.Position = UDim2.new(0.5,-90,0.5,-19)
+
+MiniBar.BackgroundColor3 = Color3.fromRGB(18,2,3)
+MiniBar.BorderSizePixel = 0
+
+MiniBar.Text = "BloodMoon V8"
+MiniBar.TextColor3 = COLORS.RedText
+MiniBar.TextSize = 15
+MiniBar.Font = Enum.Font.GothamBold
+
+MiniBar.AutoButtonColor = false
+MiniBar.Visible = false
+MiniBar.Parent = ScreenGui
+
+corner(MiniBar,9)
+stroke(MiniBar,COLORS.Border,1.5)
+
+--========================================================
+-- MINI BAR DRAG
+--========================================================
+
+local miniDragging = false
+local miniStart
+local miniPosition
+
+MiniBar.InputBegan:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+    or input.UserInputType == Enum.UserInputType.Touch then
+
+        miniDragging = true
+        miniStart = input.Position
+        miniPosition = MiniBar.Position
+
+        input.Changed:Connect(function()
+
+            if input.UserInputState == Enum.UserInputState.End then
+                miniDragging = false
+            end
+
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+    if miniDragging and (
+        input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch
+    ) then
+
+        local delta = input.Position - miniStart
+
+        MiniBar.Position = UDim2.new(
+            miniPosition.X.Scale,
+            miniPosition.X.Offset + delta.X,
+
+            miniPosition.Y.Scale,
+            miniPosition.Y.Offset + delta.Y
+        )
+    end
+end)
+
+--========================================================
+-- MINIMIZE / RESTORE
+--========================================================
+
+local function minimize()
+
+    if Library.Minimized then
+        return
+    end
+
+    Library.Minimized = true
+    Main.Visible = false
+
+    MiniBar.Position =
+        UDim2.new(0.5,-90,0.5,-19)
+
+    MiniBar.Visible = true
+end
+
+local function restore()
+
+    if not Library.Minimized then
+        return
+    end
+
+    Library.Minimized = false
+    MiniBar.Visible = false
+    Main.Visible = true
+end
+
+Minimize.Activated:Connect(minimize)
+MiniBar.Activated:Connect(restore)
+
+function Library:Minimize()
+    minimize()
+end
+
+function Library:Restore()
+    restore()
+end
+
+function Library:Toggle()
+
+    if Library.Minimized then
+        restore()
+    else
+        minimize()
+    end
+end
+
+function Library:Destroy()
+
+    pcall(function()
+
+        Config.BlackScreen = false
+        Config.BlackScreenActive = false
+
+        ScreenGui:Destroy()
+        BlackScreenGui:Destroy()
+
+    end)
+end
+
+--========================================================
+-- EXPORT
+--========================================================
+
+_G.BloodMoonSilenceFunctions = {
+
+    SetFastRebirth = function(state)
+        Config.FastRebirth = state == true
+    end,
+
+    SetFastFarm = function(state)
+        Config.FastFarm = state == true
+    end,
+
+    SetControlledSpeed = function(state)
+        Config.ControlledSpeed = state == true
+    end,
+
+    SetRepSpeed = function(value)
+
+        value = tonumber(value)
+
+        if value then
+
+            Config.RepSpeed = math.clamp(
+                math.floor(value),
+                1,
+                1000
+            )
+
+        end
+    end,
+
+    SetSize1 = function(state)
+        Config.SetSize1 = state == true
+    end,
+
+    SetLockPosition = function(state)
+
+        Config.LockPosition = state == true
+
+        if Config.LockPosition then
+
+            local root = getRoot()
+
+            if root then
+                lockedPosition = root.Position
+            end
+
+            lockPosition()
+
+        else
+
+            unlockPosition()
+
+        end
+    end,
+
+    SetAutoEgg = function(state)
+        Config.AutoEgg = state == true
+    end,
+
+    SetAutoShake = function(state)
+        Config.AutoShake = state == true
+    end,
+
+    SetAutoSpinWheel = function(state)
+        Config.AutoSpinWheel = state == true
+    end,
+
+    SetHideStats = function(state)
+
+        Config.HideStats = state == true
+
+        if Config.HideStats then
+            hideGameStats()
+        else
+            showGameStats()
+        end
+    end,
+
+    SetBlackScreen = function(state)
+
+        task.spawn(function()
+            setBlackScreen(state)
+        end)
+
+    end,
+
+    ToggleBlackScreen = function()
+
+        if Config.BlackScreen then
+
+            task.spawn(function()
+                toggleBlackScreen()
+            end)
+
+        end
+    end,
+
+    EquipBestFastRepPets = equipBestFastRepPets,
+
+    IndustrialLift = industrialLift,
+
+    IndustrialSquat = industrialSquat,
+
+    AntiLag = antiLag
+}
+
+_G.BloodMoonSilenceConfig = Config
+_G.BloodMoonV8Library = Library
+_G.BloodMoonV8Stats = StatsTracker
+
+--========================================================
+-- FINAL STATUS
+--========================================================
+
+print("========================================")
+print("BloodMoon V8 Loaded")
+print("Main + Live Stats: OK")
+print("Strength / Durability / Rebirths: OK")
+print("Hide Stats: OK")
+print("Black Screen System: OK")
+print("Floating Black Button: OK")
+print("180 Degree Loading: OK")
+print("2 Second Rotation: OK")
+print("BloodMoon GUI Above Black Screen: OK")
+print("========================================")
+
+return Library 
