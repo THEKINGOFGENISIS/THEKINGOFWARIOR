@@ -1,0 +1,388 @@
+--//========================================================
+--// SHADOWKNIGHT-HUB
+--// TEMP INFO LIBRARY
+--// BLACK / WHITE EDITION
+--// VIETNAMESE + ENGLISH INFO
+--// MOBILE + PC DRAG
+--//========================================================
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+
+local Player = Players.LocalPlayer
+
+--//========================================================
+--// LIBRARY
+--//========================================================
+
+local Library = {}
+
+Library.Title = "SHADOWKNIGHT-HUB"
+Library.SubTitle = "TheKingOfWarior"
+
+--//========================================================
+--// CREATE GUI
+--//========================================================
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ShadowKnightHub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+pcall(function()
+    ScreenGui.Parent = game:GetService("CoreGui")
+end)
+
+if not ScreenGui.Parent then
+    ScreenGui.Parent = Player:WaitForChild("PlayerGui")
+end
+
+--//========================================================
+--// MAIN WINDOW
+--//========================================================
+
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.new(0, 520, 0, 390)
+Main.Position = UDim2.new(0.5, -260, 0.5, -195)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Main.BorderSizePixel = 0
+Main.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = Main
+
+--//========================================================
+--// HEADER
+--//========================================================
+
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Size = UDim2.new(1, 0, 0, 55)
+Header.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Header.BorderSizePixel = 0
+Header.Parent = Main
+
+local HeaderCorner = Instance.new("UICorner")
+HeaderCorner.CornerRadius = UDim.new(0, 12)
+HeaderCorner.Parent = Header
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -70, 1, 0)
+Title.Position = UDim2.new(0, 18, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = Library.Title
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+--// CLOSE BUTTON
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.new(0, 40, 0, 40)
+Close.Position = UDim2.new(1, -48, 0, 7)
+Close.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Close.Text = "×"
+Close.TextColor3 = Color3.fromRGB(255, 255, 255)
+Close.Font = Enum.Font.GothamBold
+Close.TextSize = 24
+Close.BorderSizePixel = 0
+Close.Parent = Header
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 8)
+CloseCorner.Parent = Close
+
+Close.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+--//========================================================
+--// SIDEBAR
+--//========================================================
+
+local Sidebar = Instance.new("Frame")
+Sidebar.Name = "Sidebar"
+Sidebar.Size = UDim2.new(0, 125, 1, -65)
+Sidebar.Position = UDim2.new(0, 8, 0, 62)
+Sidebar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Sidebar.BorderSizePixel = 0
+Sidebar.Parent = Main
+
+local SideCorner = Instance.new("UICorner")
+SideCorner.CornerRadius = UDim.new(0, 10)
+SideCorner.Parent = Sidebar
+
+--//========================================================
+--// CONTENT
+--//========================================================
+
+local Content = Instance.new("Frame")
+Content.Name = "Content"
+Content.Size = UDim2.new(1, -145, 1, -65)
+Content.Position = UDim2.new(0, 137, 0, 62)
+Content.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Content.BorderSizePixel = 0
+Content.Parent = Main
+
+local ContentCorner = Instance.new("UICorner")
+ContentCorner.CornerRadius = UDim.new(0, 10)
+ContentCorner.Parent = Content
+
+--//========================================================
+--// TAB SYSTEM
+--//========================================================
+
+local Pages = {}
+local TabCount = 0
+
+local function CreatePage(Name)
+
+    local Page = Instance.new("ScrollingFrame")
+    Page.Name = Name
+    Page.Size = UDim2.new(1, -20, 1, -20)
+    Page.Position = UDim2.new(0, 10, 0, 10)
+    Page.BackgroundTransparency = 1
+    Page.BorderSizePixel = 0
+    Page.ScrollBarThickness = 4
+    Page.ScrollBarImageTransparency = 0.2
+    Page.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Page.Visible = false
+    Page.Parent = Content
+
+    Pages[Name] = Page
+
+    return Page
+end
+
+local function CreateTab(Name)
+
+    TabCount = TabCount + 1
+
+    local Button = Instance.new("TextButton")
+    Button.Name = Name .. "Button"
+    Button.Size = UDim2.new(1, -16, 0, 42)
+    Button.Position = UDim2.new(0, 8, 0, 8 + ((TabCount - 1) * 48))
+    Button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Button.Text = Name
+    Button.TextColor3 = Color3.fromRGB(220, 220, 220)
+    Button.Font = Enum.Font.GothamBold
+    Button.TextSize = 14
+    Button.BorderSizePixel = 0
+    Button.AutoButtonColor = true
+    Button.Parent = Sidebar
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 8)
+    Corner.Parent = Button
+
+    return Button
+end
+
+--//========================================================
+--// MAIN TAB
+--//========================================================
+
+local MainPage = CreatePage("MAIN")
+local MainTab = CreateTab("MAIN")
+
+local MainText = Instance.new("TextLabel")
+MainText.Size = UDim2.new(1, -20, 0, 120)
+MainText.Position = UDim2.new(0, 10, 0, 10)
+MainText.BackgroundTransparency = 1
+MainText.Text =
+    "Welcome to ShadowKnight-Hub\n\n" ..
+    "Script by: TheKingOfWarior\n\n" ..
+    "Thank you for using my script!"
+
+MainText.TextColor3 = Color3.fromRGB(255, 255, 255)
+MainText.Font = Enum.Font.GothamBold
+MainText.TextSize = 17
+MainText.TextWrapped = true
+MainText.TextYAlignment = Enum.TextYAlignment.Top
+MainText.Parent = MainPage
+
+MainPage.CanvasSize = UDim2.new(0, 0, 0, 150)
+
+--//========================================================
+--// INFO TAB
+--//========================================================
+
+local InfoPage = CreatePage("INFO")
+local InfoTab = CreateTab("INFO")
+
+--// INFO TITLE
+local InfoTitle = Instance.new("TextLabel")
+InfoTitle.Size = UDim2.new(1, -20, 0, 40)
+InfoTitle.Position = UDim2.new(0, 10, 0, 5)
+InfoTitle.BackgroundTransparency = 1
+InfoTitle.Text = "⚡ INFO / THÔNG TIN ⚡"
+InfoTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+InfoTitle.Font = Enum.Font.GothamBold
+InfoTitle.TextSize = 19
+InfoTitle.TextWrapped = true
+InfoTitle.Parent = InfoPage
+
+--// INFO TEXT
+local InfoText = Instance.new("TextLabel")
+InfoText.Name = "InfoText"
+InfoText.Size = UDim2.new(1, -20, 0, 650)
+InfoText.Position = UDim2.new(0, 10, 0, 50)
+InfoText.BackgroundTransparency = 1
+
+InfoText.Text =
+    "🇻🇳 TIẾNG VIỆT\n\n" ..
+
+    "Youtube\n" ..
+    "Đăng ký kênh và like video cho: TheKingOfWarior\n\n" ..
+
+    "Tiktok\n" ..
+    "Tim video và follow cho: TheKingOfWarior\n\n" ..
+
+    "⚠ CẢNH BÁO ⚠\n" ..
+    "Do tôi mới tập làm script nên sẽ có những chức năng " ..
+    "chưa hoàn thiện hoặc lỗi.\n\n" ..
+
+    "Nên ai gặp lỗi hãy báo cho tôi với các thông tin kênh.\n\n" ..
+
+    "Script của tôi là script độc quyền và có giao diện khác " ..
+    "với các script khác.\n\n" ..
+
+    "Nên không so sánh với toxic.\n\n\n" ..
+
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" ..
+
+    "🇬🇧 ENGLISH\n\n" ..
+
+    "Youtube\n" ..
+    "Subscribe to the channel and like the videos: TheKingOfWarior\n\n" ..
+
+    "Tiktok\n" ..
+    "Like the videos and follow: TheKingOfWarior\n\n" ..
+
+    "⚠ WARNING ⚠\n" ..
+    "I'm still new to making scripts, so some features may be " ..
+    "incomplete or may have bugs.\n\n" ..
+
+    "If you encounter any errors, please report them to me " ..
+    "with your channel information.\n\n" ..
+
+    "My script is an exclusive script with a different interface " ..
+    "from other scripts.\n\n" ..
+
+    "Please don't compare it with Toxic."
+
+InfoText.TextColor3 = Color3.fromRGB(235, 235, 235)
+InfoText.Font = Enum.Font.Gotham
+InfoText.TextSize = 15
+InfoText.TextWrapped = true
+InfoText.TextXAlignment = Enum.TextXAlignment.Left
+InfoText.TextYAlignment = Enum.TextYAlignment.Top
+InfoText.Parent = InfoPage
+
+InfoPage.CanvasSize = UDim2.new(0, 0, 0, 720)
+
+--//========================================================
+--// TAB SWITCH
+--//========================================================
+
+local function ShowPage(Name)
+
+    for PageName, Page in pairs(Pages) do
+        Page.Visible = (PageName == Name)
+    end
+
+    --// Highlight selected tab
+    for _, Object in ipairs(Sidebar:GetChildren()) do
+
+        if Object:IsA("TextButton") then
+
+            if Object.Text == Name then
+                Object.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                Object.TextColor3 = Color3.fromRGB(0, 0, 0)
+            else
+                Object.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                Object.TextColor3 = Color3.fromRGB(220, 220, 220)
+            end
+
+        end
+
+    end
+end
+
+MainTab.MouseButton1Click:Connect(function()
+    ShowPage("MAIN")
+end)
+
+InfoTab.MouseButton1Click:Connect(function()
+    ShowPage("INFO")
+end)
+
+--// DEFAULT PAGE
+ShowPage("MAIN")
+
+--//========================================================
+--// DRAG SYSTEM
+--// PC + MOBILE
+--//========================================================
+
+local Dragging = false
+local DragStart
+local StartPosition
+
+local function UpdateDrag(Input)
+
+    local Delta = Input.Position - DragStart
+
+    Main.Position = UDim2.new(
+        StartPosition.X.Scale,
+        StartPosition.X.Offset + Delta.X,
+
+        StartPosition.Y.Scale,
+        StartPosition.Y.Offset + Delta.Y
+    )
+
+end
+
+Header.InputBegan:Connect(function(Input)
+
+    if Input.UserInputType == Enum.UserInputType.MouseButton1
+    or Input.UserInputType == Enum.UserInputType.Touch then
+
+        Dragging = true
+        DragStart = Input.Position
+        StartPosition = Main.Position
+
+        Input.Changed:Connect(function()
+
+            if Input.UserInputState == Enum.UserInputState.End then
+                Dragging = false
+            end
+
+        end)
+
+    end
+
+end)
+
+UIS.InputChanged:Connect(function(Input)
+
+    if Dragging
+    and (
+        Input.UserInputType == Enum.UserInputType.MouseMovement
+        or Input.UserInputType == Enum.UserInputType.Touch
+    ) then
+
+        UpdateDrag(Input)
+
+    end
+
+end)
+
+--//========================================================
+--// LIBRARY READY
+--//========================================================
+
+print("ShadowKnight-Hub | Info Library Loaded!") 
