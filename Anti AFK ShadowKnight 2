@@ -1,0 +1,523 @@
+--//========================================================
+--// SHADOWKNIGHT-HUB
+--// ANTI-AFK EDITION
+--// BLACK / WHITE
+--// LOGO SYSTEM COPIED FROM FULL EDITION
+--// MOBILE + PC DRAG
+--//========================================================
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local ContentProvider = game:GetService("ContentProvider")
+local VirtualUser = game:GetService("VirtualUser")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+--========================================================
+-- CONFIG
+--========================================================
+
+local GUI_NAME = "ShadowKnightAntiAFK"
+local LOGO_ASSET_ID = "89551478301903"
+
+local BLACK = Color3.fromRGB(12,12,12)
+local DARK = Color3.fromRGB(18,18,18)
+local WHITE = Color3.fromRGB(245,245,245)
+local GRAY = Color3.fromRGB(150,150,150)
+
+local START_TIME = os.time()
+
+local Username = LocalPlayer.Name
+if Username == "" then
+    Username = LocalPlayer.DisplayName or "User"
+end
+
+--========================================================
+-- GUI PARENT
+--========================================================
+
+local function GetGuiParent()
+    local ok, result = pcall(function()
+        if typeof(gethui) == "function" then
+            return gethui()
+        end
+    end)
+
+    if ok and result then
+        return result
+    end
+
+    return CoreGui
+end
+
+local GUI_PARENT = GetGuiParent()
+
+-- Remove old GUI
+pcall(function()
+    local old = GUI_PARENT:FindFirstChild(GUI_NAME)
+    if old then
+        old:Destroy()
+    end
+end)
+
+pcall(function()
+    local old = PlayerGui:FindFirstChild(GUI_NAME)
+    if old then
+        old:Destroy()
+    end
+end)
+
+--========================================================
+-- CREATE
+--========================================================
+
+local function Create(className, props)
+    local obj = Instance.new(className)
+
+    for k,v in pairs(props or {}) do
+        pcall(function()
+            obj[k] = v
+        end)
+    end
+
+    return obj
+end
+
+local function Corner(obj, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius or 8)
+    c.Parent = obj
+    return c
+end
+
+local function Stroke(obj, color, thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color or WHITE
+    s.Thickness = thickness or 1
+    s.Parent = obj
+    return s
+end
+
+--========================================================
+-- SCREEN GUI
+--========================================================
+
+local Root = Create("ScreenGui", {
+    Name = GUI_NAME,
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    ZIndexBehavior = Enum.ZIndexBehavior.Global,
+    DisplayOrder = 999999
+})
+
+local ok = pcall(function()
+    Root.Parent = GUI_PARENT
+end)
+
+if not ok or not Root.Parent then
+    Root.Parent = PlayerGui
+end
+
+--========================================================
+-- MAIN FRAME
+--========================================================
+
+local Main = Create("Frame", {
+    Name = "Main",
+    Parent = Root,
+
+    BackgroundColor3 = DARK,
+    BackgroundTransparency = 0,
+
+    BorderSizePixel = 0,
+
+    Size = UDim2.new(0, 280, 0, 70),
+
+    Position = UDim2.new(
+        0,
+        12,
+        0,
+        12
+    ),
+
+    Active = true,
+    ZIndex = 10
+})
+
+Corner(Main, 12)
+Stroke(Main, WHITE, 2)
+
+--========================================================
+-- HEADER
+--========================================================
+
+local Header = Create("Frame", {
+    Name = "Header",
+    Parent = Main,
+
+    BackgroundColor3 = BLACK,
+    BorderSizePixel = 0,
+
+    Size = UDim2.new(1, 0, 0, 32),
+
+    Active = true,
+    ZIndex = 20
+})
+
+Corner(Header, 10)
+
+--========================================================
+-- LOGO HOLDER
+--========================================================
+
+local LogoHolder = Create("Frame", {
+    Name = "LogoHolder",
+    Parent = Header,
+
+    BackgroundColor3 = Color3.fromRGB(8,8,8),
+    BorderSizePixel = 0,
+
+    Position = UDim2.new(0, 5, 0, 3),
+    Size = UDim2.new(0, 26, 0, 26),
+
+    ZIndex = 100
+})
+
+Corner(LogoHolder, 13)
+Stroke(LogoHolder, Color3.fromRGB(180,180,180), 1)
+
+--========================================================
+-- SHADOWKNIGHT LOGO
+-- EXACT METHOD FROM YOUR WORKING SCRIPT
+--========================================================
+
+local Logo = Create("ImageLabel", {
+    Name = "ShadowKnightLogo",
+    Parent = LogoHolder,
+
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+
+    Image =
+        "rbxthumb://type=Asset&id="
+        .. LOGO_ASSET_ID
+        .. "&w=420&h=420",
+
+    ImageTransparency = 0,
+    ImageColor3 = WHITE,
+
+    Position = UDim2.new(0, 2, 0, 2),
+    Size = UDim2.new(1, -4, 1, -4),
+
+    ScaleType = Enum.ScaleType.Fit,
+
+    Visible = true,
+
+    ZIndex = 101
+})
+
+Corner(Logo, 12)
+
+--========================================================
+-- LOGO PRELOAD + FALLBACK
+-- EXACT METHOD FROM YOUR WORKING SCRIPT
+--========================================================
+
+task.spawn(function()
+
+    pcall(function()
+        ContentProvider:PreloadAsync({
+            Logo
+        })
+    end)
+
+    if not Logo.IsLoaded then
+
+        pcall(function()
+
+            Logo.Image =
+                "rbxassetid://"
+                .. LOGO_ASSET_ID
+
+            ContentProvider:PreloadAsync({
+                Logo
+            })
+
+        end)
+
+    end
+
+end)
+
+--========================================================
+-- TITLE
+--========================================================
+
+local Title = Create("TextLabel", {
+    Name = "Title",
+    Parent = Header,
+
+    BackgroundTransparency = 1,
+
+    Text = "ShadowKnight-Hub",
+
+    TextColor3 = WHITE,
+    TextSize = 11,
+
+    Font = Enum.Font.GothamBold,
+
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Center,
+
+    Position = UDim2.new(0, 38, 0, 0),
+    Size = UDim2.new(1, -42, 1, 0),
+
+    TextTruncate = Enum.TextTruncate.AtEnd,
+
+    ZIndex = 40
+})
+
+--========================================================
+-- BODY
+--========================================================
+
+local Status = Create("TextLabel", {
+    Name = "Status",
+    Parent = Main,
+
+    BackgroundTransparency = 1,
+
+    Text = "● Anti AFK  •  ON",
+
+    TextColor3 = WHITE,
+    TextSize = 10,
+
+    Font = Enum.Font.GothamSemibold,
+
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Center,
+
+    Position = UDim2.new(0, 10, 0, 35),
+    Size = UDim2.new(0, 130, 0, 18),
+
+    ZIndex = 30
+})
+
+--========================================================
+-- TIMER
+--========================================================
+
+local Timer = Create("TextLabel", {
+    Name = "Timer",
+    Parent = Main,
+
+    BackgroundTransparency = 1,
+
+    Text = "00:00:00",
+
+    TextColor3 = WHITE,
+    TextSize = 14,
+
+    Font = Enum.Font.GothamBold,
+
+    TextXAlignment = Enum.TextXAlignment.Right,
+    TextYAlignment = Enum.TextYAlignment.Center,
+
+    Position = UDim2.new(1, -110, 0, 34),
+    Size = UDim2.new(0, 100, 0, 22),
+
+    ZIndex = 30
+})
+
+local RuntimeText = Create("TextLabel", {
+    Name = "RuntimeText",
+    Parent = Main,
+
+    BackgroundTransparency = 1,
+
+    Text = "RUN TIME",
+
+    TextColor3 = GRAY,
+    TextSize = 7,
+
+    Font = Enum.Font.GothamBold,
+
+    TextXAlignment = Enum.TextXAlignment.Right,
+    TextYAlignment = Enum.TextYAlignment.Center,
+
+    Position = UDim2.new(1, -110, 0, 51),
+    Size = UDim2.new(0, 100, 0, 10),
+
+    ZIndex = 30
+})
+
+--========================================================
+-- DRAG SYSTEM
+-- MOBILE + PC
+--========================================================
+
+local Dragging = false
+local DragStart = nil
+local StartPosition = nil
+
+Header.InputBegan:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+
+        Dragging = true
+
+        DragStart = input.Position
+        StartPosition = Main.Position
+
+        local Connection
+
+        Connection = input.Changed:Connect(function()
+
+            if input.UserInputState == Enum.UserInputState.End then
+
+                Dragging = false
+
+                if Connection then
+                    Connection:Disconnect()
+                end
+
+            end
+
+        end)
+
+    end
+
+end)
+
+UIS.InputChanged:Connect(function(input)
+
+    if not Dragging then
+        return
+    end
+
+    if input.UserInputType ~= Enum.UserInputType.MouseMovement
+        and input.UserInputType ~= Enum.UserInputType.Touch then
+        return
+    end
+
+    local Delta = input.Position - DragStart
+
+    Main.Position = UDim2.new(
+        StartPosition.X.Scale,
+        StartPosition.X.Offset + Delta.X,
+
+        StartPosition.Y.Scale,
+        StartPosition.Y.Offset + Delta.Y
+    )
+
+end)
+
+--========================================================
+-- ANTI AFK
+-- AUTOMATICALLY ON
+--========================================================
+
+local function AntiAFK()
+
+    pcall(function()
+
+        VirtualUser:CaptureController()
+
+        VirtualUser:ClickButton2(
+            Vector2.new(0, 0)
+        )
+
+    end)
+
+end
+
+-- Main Roblox idle event
+LocalPlayer.Idled:Connect(function()
+
+    AntiAFK()
+
+end)
+
+-- Backup Anti-AFK
+task.spawn(function()
+
+    while task.wait(60) do
+
+        AntiAFK()
+
+    end
+
+end)
+
+--========================================================
+-- TIMER LOOP
+--========================================================
+
+task.spawn(function()
+
+    while Root and Root.Parent do
+
+        local elapsed = os.time() - START_TIME
+
+        local hours = math.floor(elapsed / 3600)
+
+        local minutes = math.floor(
+            (elapsed % 3600) / 60
+        )
+
+        local seconds = elapsed % 60
+
+        Timer.Text = string.format(
+            "%02d:%02d:%02d",
+            hours,
+            minutes,
+            seconds
+        )
+
+        task.wait(1)
+
+    end
+
+end)
+
+--========================================================
+-- RESPAWN SAFE
+--========================================================
+
+LocalPlayer.CharacterAdded:Connect(function()
+
+    task.wait(1)
+
+    -- Anti AFK remains active automatically
+
+end)
+
+--========================================================
+-- CLEANUP
+--========================================================
+
+Root.AncestryChanged:Connect(function(_, parent)
+
+    if not parent then
+
+        pcall(function()
+            Root:Destroy()
+        end)
+
+    end
+
+end)
+
+--========================================================
+-- DONE
+--========================================================
+
+print("==============================================")
+print("[ShadowKnight-Hub] Anti-AFK Loaded")
+print("[ShadowKnight-Hub] Logo: Thumbnail + Asset")
+print("[ShadowKnight-Hub] Anti-AFK: ON")
+print("[ShadowKnight-Hub] User: " .. Username)
+print("==============================================") 
