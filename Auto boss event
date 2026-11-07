@@ -1,0 +1,515 @@
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Config = {Name = "TheBloodDevil", Title = "The Blood Devil", LogoID = "128370761375192", Red = Color3.fromRGB(255, 25, 45), MainColor = Color3.fromRGB(190, 0, 35), DarkRed = Color3.fromRGB(90, 0, 15), Background = Color3.fromRGB(7, 7, 9), Panel = Color3.fromRGB(15, 15, 18), Panel2 = Color3.fromRGB(24, 24, 28), White = Color3.fromRGB(245, 245, 245), Gray = Color3.fromRGB(150, 150, 155), Width = 380, Height = 300}
+local Line1 = Color3.fromRGB(35, 35, 40)
+local Line2 = Color3.fromRGB(40, 40, 45)
+local Line3 = Color3.fromRGB(45, 45, 50)
+local TabOn = Color3.fromRGB(48, 5, 12)
+local HoverBg = Color3.fromRGB(45, 8, 15)
+local ToggleOn = Color3.fromRGB(65, 7, 16)
+local NormalOrder = {"Boss1", "Boss2", "Boss3", "Boss4", "Boss5", "Boss Rainbow"}
+local EventOrder = {"SCARECROW COLOSSUS", "FRANKENBRUTE", "PUMPKIN TITAN", "GRIM REAPER"}
+local FollowDistance = 5
+local FollowHeight = 0
+local NearRange = 80
+local LoopInterval = 0.05
+local ScanInterval = 1
+local PunchKeywords = {"punch", "attack", "combat", "right", "left"}
+
+local function buildPriority(order)
+    local map = {}
+    for index, name in ipairs(order) do map[string.upper(name)] = index end
+    return map
+end
+
+local NormalPriority = buildPriority(NormalOrder)
+local EventPriority = buildPriority(EventOrder)
+
+local function safe(callback, ...)
+    local ok, err = pcall(callback, ...)
+    if not ok then warn("[BloodDevil] " .. tostring(err)) end
+end
+
+local function make(class, props, parent)
+    local obj = Instance.new(class)
+    for key, value in pairs(props) do obj[key] = value end
+    obj.Parent = parent
+    return obj
+end
+
+local function Corner(obj, radius)
+    return make("UICorner", {CornerRadius = UDim.new(0, radius)}, obj)
+end
+
+local function Stroke(obj, color, thickness)
+    return make("UIStroke", {Color = color, Thickness = thickness or 1}, obj)
+end
+
+local function MakeLabel(parent, text, size, color)
+    return make("TextLabel", {BackgroundTransparency = 1, Text = text, TextColor3 = color or Config.White, TextSize = size or 13, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left}, parent)
+end
+
+local Parent = (gethui and gethui()) or CoreGui
+
+for _, container in ipairs({PlayerGui, CoreGui, Parent}) do
+    pcall(function()
+        local old = container:FindFirstChild(Config.Name)
+        if old then old:Destroy() end
+    end)
+end
+
+local Gui = make("ScreenGui", {Name = Config.Name, ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 999999}, Parent)
+local Main = make("Frame", {Name = "Window", Size = UDim2.fromOffset(Config.Width, Config.Height), Position = UDim2.new(0.5, -Config.Width / 2, 0.5, -Config.Height / 2), BackgroundColor3 = Config.Background, BorderSizePixel = 0}, Gui)
+Corner(Main, 10)
+Stroke(Main, Config.MainColor, 2)
+
+local Header = make("Frame", {Size = UDim2.new(1, 0, 0, 43), BackgroundColor3 = Color3.fromRGB(9, 9, 12), BorderSizePixel = 0}, Main)
+Corner(Header, 10)
+make("Frame", {Size = UDim2.new(1, 0, 0, 2), Position = UDim2.new(0, 0, 1, -2), BackgroundColor3 = Config.Red, BorderSizePixel = 0}, Header)
+
+local Logo = make("ImageLabel", {Name = "Logo", Size = UDim2.fromOffset(34, 34), Position = UDim2.fromOffset(6, 4), BackgroundColor3 = Config.Panel2, BorderSizePixel = 0, Image = "rbxassetid://" .. Config.LogoID, ScaleType = Enum.ScaleType.Crop}, Header)
+Corner(Logo, 7)
+Stroke(Logo, Config.MainColor, 1)
+
+local ThumbImage = "rbxthumb://type=Asset&id=" .. Config.LogoID .. "&w=420&h=420"
+
+task.delay(0.5, function()
+    pcall(function() Logo.Image = ThumbImage end)
+end)
+
+local Title = MakeLabel(Header, Config.Title, 14, Config.White)
+Title.Position = UDim2.fromOffset(47, 5)
+Title.Size = UDim2.new(1, -125, 0, 18)
+Title.Font = Enum.Font.GothamBold
+
+local Subtitle = MakeLabel(Header, "Crimson Edition • " .. LocalPlayer.DisplayName, 9, Config.Gray)
+Subtitle.Position = UDim2.fromOffset(48, 22)
+Subtitle.Size = UDim2.new(1, -125, 0, 14)
+
+local Minimize = make("TextButton", {Size = UDim2.fromOffset(28, 27), Position = UDim2.new(1, -62, 0, 8), BackgroundColor3 = Config.Panel2, BorderSizePixel = 0, Text = "—", TextColor3 = Config.White, TextSize = 15, Font = Enum.Font.GothamBold, AutoButtonColor = false}, Header)
+Corner(Minimize, 6)
+
+local Close = make("TextButton", {Size = UDim2.fromOffset(27, 27), Position = UDim2.new(1, -31, 0, 8), BackgroundColor3 = Config.DarkRed, BorderSizePixel = 0, Text = "X", TextColor3 = Config.White, TextSize = 12, Font = Enum.Font.GothamBold, AutoButtonColor = false}, Header)
+Corner(Close, 6)
+
+local Body = make("Frame", {Position = UDim2.fromOffset(0, 43), Size = UDim2.new(1, 0, 1, -43), BackgroundTransparency = 1}, Main)
+local Sidebar = make("ScrollingFrame", {Name = "Tabs", Position = UDim2.fromOffset(7, 7), Size = UDim2.new(0, 98, 1, -14), BackgroundColor3 = Config.Panel, BorderSizePixel = 0, ScrollBarThickness = 2, ScrollBarImageColor3 = Config.MainColor, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new()}, Body)
+Corner(Sidebar, 7)
+Stroke(Sidebar, Line1, 1)
+make("UIPadding", {PaddingTop = UDim.new(0, 5), PaddingLeft = UDim.new(0, 5), PaddingRight = UDim.new(0, 5), PaddingBottom = UDim.new(0, 5)}, Sidebar)
+make("UIListLayout", {Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder}, Sidebar)
+local Pages = make("Frame", {Position = UDim2.fromOffset(112, 7), Size = UDim2.new(1, -119, 1, -14), BackgroundTransparency = 1}, Body)
+
+local Tabs = {}
+
+local function CreateTab(name)
+    local Page = make("ScrollingFrame", {Name = name, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 2, ScrollBarImageColor3 = Config.MainColor, AutomaticCanvasSize = Enum.AutomaticSize.Y, CanvasSize = UDim2.new(), Visible = false}, Pages)
+    make("UIPadding", {PaddingBottom = UDim.new(0, 6), PaddingRight = UDim.new(0, 4)}, Page)
+    make("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, Page)
+
+    local Button = make("TextButton", {Size = UDim2.new(1, 0, 0, 32), BackgroundColor3 = Config.Panel2, BorderSizePixel = 0, Text = name, TextColor3 = Config.Gray, TextSize = 11, Font = Enum.Font.GothamBold, AutoButtonColor = false}, Sidebar)
+    Corner(Button, 6)
+    local ButtonStroke = Stroke(Button, Line2, 1)
+    local Tab = {Page = Page, Button = Button, Stroke = ButtonStroke}
+
+    function Tab:Select()
+        for _, other in ipairs(Tabs) do
+            other.Page.Visible = false
+            other.Button.BackgroundColor3 = Config.Panel2
+            other.Button.TextColor3 = Config.Gray
+            other.Stroke.Color = Line2
+        end
+        Page.Visible = true
+        Button.BackgroundColor3 = TabOn
+        Button.TextColor3 = Config.White
+        ButtonStroke.Color = Config.MainColor
+    end
+
+    function Tab:AddLabel(text)
+        local Label = make("TextLabel", {Size = UDim2.new(1, 0, 0, 31), BackgroundColor3 = Config.Panel, BorderSizePixel = 0, Text = text, TextColor3 = Config.White, TextSize = 11, Font = Enum.Font.Gotham, TextWrapped = true}, Page)
+        Corner(Label, 6)
+        Stroke(Label, Line1, 1)
+        return Label
+    end
+
+    function Tab:AddButton(text, callback)
+        local Btn = make("TextButton", {Size = UDim2.new(1, 0, 0, 35), BackgroundColor3 = Config.Panel2, BorderSizePixel = 0, Text = text, TextColor3 = Config.White, TextSize = 11, Font = Enum.Font.GothamBold, AutoButtonColor = false}, Page)
+        Corner(Btn, 6)
+        local BtnStroke = Stroke(Btn, Line3, 1)
+        Btn.MouseButton1Click:Connect(function() safe(callback) end)
+        Btn.MouseEnter:Connect(function()
+            Btn.BackgroundColor3 = HoverBg
+            BtnStroke.Color = Config.MainColor
+        end)
+        Btn.MouseLeave:Connect(function()
+            Btn.BackgroundColor3 = Config.Panel2
+            BtnStroke.Color = Line3
+        end)
+        return Btn
+    end
+
+    function Tab:AddToggle(text, callback)
+        local Enabled = false
+        local Btn = make("TextButton", {Size = UDim2.new(1, 0, 0, 35), BackgroundColor3 = Config.Panel2, BorderSizePixel = 0, TextColor3 = Config.White, TextSize = 11, Font = Enum.Font.GothamBold, AutoButtonColor = false}, Page)
+        Corner(Btn, 6)
+
+        local function Update()
+            Btn.Text = text .. " [" .. (Enabled and "ON" or "OFF") .. "]"
+            Btn.BackgroundColor3 = Enabled and ToggleOn or Config.Panel2
+        end
+
+        Btn.MouseButton1Click:Connect(function()
+            Enabled = not Enabled
+            Update()
+            safe(callback, Enabled)
+        end)
+
+        Update()
+
+        return {Set = function(_, value)
+            Enabled = value and true or false
+            Update()
+            safe(callback, Enabled)
+        end, Get = function() return Enabled end}
+    end
+
+    Button.MouseButton1Click:Connect(function() Tab:Select() end)
+    table.insert(Tabs, Tab)
+    return Tab
+end
+
+local function getBossPart(boss)
+    if not boss or not boss.Parent then return nil end
+    if boss:IsA("BasePart") then return boss end
+    if not boss:IsA("Model") then return nil end
+    local part = boss:FindFirstChild("UpperTorso") or boss:FindFirstChild("Torso") or boss:FindFirstChild("HumanoidRootPart") or boss.PrimaryPart
+    if part and part:IsA("BasePart") then return part end
+    return boss:FindFirstChildWhichIsA("BasePart", true)
+end
+
+local function isBossDead(boss)
+    if not boss or not boss.Parent then return true end
+    local hum = boss:IsA("Model") and boss:FindFirstChildOfClass("Humanoid")
+    return hum ~= nil and hum ~= false and hum.Health <= 0
+end
+
+local function isValidBoss(obj, priority)
+    if not priority[string.upper(obj.Name)] then return false end
+    if not (obj:IsA("Model") or obj:IsA("BasePart")) then return false end
+    return getBossPart(obj) ~= nil and not isBossDead(obj)
+end
+
+local function findBoss(order, priority)
+    for _, name in ipairs(order) do
+        local obj = Workspace:FindFirstChild(name)
+        if obj and isValidBoss(obj, priority) then return obj end
+    end
+    local best, bestPriority = nil, math.huge
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        local p = priority[string.upper(obj.Name)]
+        if p and p < bestPriority and isValidBoss(obj, priority) then
+            best, bestPriority = obj, p
+        end
+    end
+    return best
+end
+
+local function findBossSpawn()
+    local events = Workspace:FindFirstChild("Events")
+    local arena = events and events:FindFirstChild("BossArena")
+    local spawn = arena and arena:FindFirstChild("BossSpawn")
+    if spawn and (spawn:IsA("BasePart") or spawn:IsA("Model")) then return spawn end
+    return nil
+end
+
+local function getPosition(obj)
+    if not obj then return nil end
+    if obj:IsA("BasePart") then return obj.Position end
+    local part = getBossPart(obj)
+    return part and part.Position or nil
+end
+
+local function findNearestBoss(priority, origin, range)
+    local best, bestDist = nil, range
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if priority[string.upper(obj.Name)] and isValidBoss(obj, priority) then
+            local pos = getPosition(obj)
+            local dist = pos and (pos - origin).Magnitude
+            if dist and dist <= bestDist then best, bestDist = obj, dist end
+        end
+    end
+    return best
+end
+
+local function getBodyOffset(boss, part)
+    if boss and boss:IsA("Model") then
+        local ok, cf = pcall(boss.GetBoundingBox, boss)
+        if ok and cf then return part.CFrame:PointToObjectSpace(cf.Position) end
+    end
+    return Vector3.zero
+end
+
+local Follower = {}
+Follower.__index = Follower
+
+function Follower.new()
+    return setmetatable({Conns = {}, Target = nil, Root = nil}, Follower)
+end
+
+function Follower:Detach()
+    for _, conn in ipairs(self.Conns) do pcall(conn.Disconnect, conn) end
+    table.clear(self.Conns)
+    self.Target, self.Root = nil, nil
+end
+
+function Follower:Attach(root, targetPart, boss)
+    self:Detach()
+    local offset = CFrame.new(getBodyOffset(boss, targetPart)) * CFrame.new(0, FollowHeight, -FollowDistance) * CFrame.Angles(0, math.pi, 0)
+    local char = root.Parent
+    self.Target, self.Root = targetPart, root
+    self.Conns[1] = RunService.Heartbeat:Connect(function()
+        if not root.Parent or not targetPart.Parent then return end
+        root.CFrame = targetPart.CFrame * offset
+        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyAngularVelocity = Vector3.zero
+    end)
+    self.Conns[2] = RunService.Stepped:Connect(function()
+        if not char or not char.Parent then return end
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+    end)
+end
+
+function Follower:IsAttachedTo(root, targetPart)
+    return self.Root == root and self.Target == targetPart and #self.Conns > 0 and targetPart.Parent ~= nil
+end
+
+local function getCharacter()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if hum and hum.Health > 0 and root then return char, hum, root end
+    return nil
+end
+
+local function isPunchTrack(track)
+    local name = string.lower(track.Name)
+    for _, keyword in ipairs(PunchKeywords) do
+        if string.find(name, keyword, 1, true) then return true end
+    end
+    return false
+end
+
+local function doFastPunch(char, hum)
+    local punch = char:FindFirstChild("Punch")
+    if not punch then
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        punch = backpack and backpack:FindFirstChild("Punch")
+        if punch then pcall(hum.EquipTool, hum, punch) end
+    end
+    if not punch then return end
+
+    local attackTime = punch:FindFirstChild("attackTime")
+    if attackTime and attackTime:IsA("NumberValue") then attackTime.Value = 0 end
+    pcall(punch.Activate, punch)
+
+    local muscleEvent = LocalPlayer:FindFirstChild("muscleEvent")
+    if muscleEvent then
+        pcall(muscleEvent.FireServer, muscleEvent, "punch", "rightHand")
+        pcall(muscleEvent.FireServer, muscleEvent, "punch", "leftHand")
+    end
+
+    local animator = hum:FindFirstChildOfClass("Animator")
+    if not animator then return end
+    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+        if isPunchTrack(track) then pcall(track.AdjustSpeed, track, 10) end
+    end
+end
+
+local Controllers = {}
+
+local function createAutoBoss(mode)
+    local ctrl = {Enabled = false, Locked = nil, Follower = Follower.new(), IdleDone = false}
+
+    local function setText(label, text)
+        if label and label.Text ~= text then label.Text = text end
+    end
+
+    local function pick(root)
+        if mode.Nearest then return findNearestBoss(mode.Priority, root.Position, mode.Range) end
+        return findBoss(mode.Order, mode.Priority)
+    end
+
+    local function update(root)
+        if not ctrl.Locked or isBossDead(ctrl.Locked) then
+            ctrl.Locked = pick(root)
+            ctrl.IdleDone = false
+            if not ctrl.Locked then ctrl.Follower:Detach() end
+        end
+
+        local boss = ctrl.Locked
+        local part = boss and getBossPart(boss)
+
+        if boss and part then
+            if not ctrl.Follower:IsAttachedTo(root, part) then ctrl.Follower:Attach(root, part, boss) end
+            setText(mode.BossLabel, "Boss: " .. boss.Name)
+            setText(mode.Status, "Following " .. boss.Name)
+            return
+        end
+
+        setText(mode.BossLabel, "Boss: None")
+        setText(mode.Status, mode.Nearest and "Waiting near boss..." or "Waiting for boss...")
+        if mode.OnIdle and not ctrl.IdleDone then
+            ctrl.IdleDone = true
+            safe(mode.OnIdle, root)
+        end
+    end
+
+    task.spawn(function()
+        local lastScan = 0
+        while Gui.Parent do
+            task.wait(LoopInterval)
+            if not ctrl.Enabled then continue end
+            local char, hum, root = getCharacter()
+            if not char then continue end
+            local now = os.clock()
+            if ctrl.Locked or now - lastScan >= ScanInterval then
+                lastScan = now
+                update(root)
+            end
+            if ctrl.Locked and not isBossDead(ctrl.Locked) then doFastPunch(char, hum) end
+        end
+    end)
+
+    function ctrl:Set(state)
+        self.Enabled = state
+        self.IdleDone = false
+        self.Locked = nil
+        if state then
+            setText(mode.Status, mode.Nearest and "Waiting near boss..." or "Waiting for boss...")
+            return
+        end
+        self.Follower:Detach()
+        setText(mode.BossLabel, "Boss: None")
+        setText(mode.Status, mode.Nearest and "Follow Near: OFF" or "Auto Boss: OFF")
+    end
+
+    table.insert(Controllers, ctrl)
+    return ctrl
+end
+
+local function addBossButtons(tab, order, priority, status, bossLabel)
+    tab:AddButton("Scan Boss", function()
+        local boss = findBoss(order, priority)
+        bossLabel.Text = boss and ("Boss: " .. boss.Name) or "Boss: None"
+        status.Text = boss and "Status: Boss found" or "Status: Boss not found"
+    end)
+
+    tab:AddButton("Scan Workspace Bosses", function()
+        local found, names = {}, {}
+        for _, obj in ipairs(Workspace:GetDescendants()) do
+            if priority[string.upper(obj.Name)] and not found[obj.Name] and isValidBoss(obj, priority) then
+                found[obj.Name] = true
+                table.insert(names, obj.Name)
+            end
+        end
+        table.sort(names, function(a, b) return priority[string.upper(a)] < priority[string.upper(b)] end)
+        status.Text = #names > 0 and ("Found: " .. table.concat(names, ", ")) or "Found: NONE"
+    end)
+end
+
+local MainTab = CreateTab("Main")
+local FarmTab = CreateTab("Farm Boss")
+local EventTab = CreateTab("Boss Event")
+
+MainTab:AddLabel("THE BLOOD DEVIL\nCRIMSON EDITION")
+MainTab:AddLabel("Mobile + PC • RightShift = Show / Hide")
+
+local FarmStatus = FarmTab:AddLabel("Status: Waiting...")
+local FarmBossLabel = FarmTab:AddLabel("Boss: None")
+local FarmAuto = createAutoBoss({Order = NormalOrder, Priority = NormalPriority, Status = FarmStatus, BossLabel = FarmBossLabel})
+FarmTab:AddToggle("Auto Boss", function(state) FarmAuto:Set(state) end)
+addBossButtons(FarmTab, NormalOrder, NormalPriority, FarmStatus, FarmBossLabel)
+
+local EventStatus = EventTab:AddLabel("Status: Waiting...")
+local EventBossLabel = EventTab:AddLabel("Boss: None")
+local EventSpawnLabel = EventTab:AddLabel("BossSpawn: Checking...")
+
+local function teleportToSpawn(root)
+    local pos = getPosition(findBossSpawn())
+    if pos then root.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0)) end
+    EventSpawnLabel.Text = pos and "BossSpawn: FOUND" or "BossSpawn: NOT FOUND"
+end
+
+local EventAuto = createAutoBoss({Order = EventOrder, Priority = EventPriority, Status = EventStatus, BossLabel = EventBossLabel, OnIdle = teleportToSpawn})
+local EventNear = createAutoBoss({Order = EventOrder, Priority = EventPriority, Status = EventStatus, BossLabel = EventBossLabel, Nearest = true, Range = NearRange})
+local EventAutoToggle, EventNearToggle
+
+EventAutoToggle = EventTab:AddToggle("Auto Boss Event", function(state)
+    if state and EventNearToggle and EventNearToggle.Get() then EventNearToggle:Set(false) end
+    EventAuto:Set(state)
+end)
+
+EventNearToggle = EventTab:AddToggle("Follow Boss Gần", function(state)
+    if state and EventAutoToggle and EventAutoToggle.Get() then EventAutoToggle:Set(false) end
+    EventNear:Set(state)
+end)
+
+addBossButtons(EventTab, EventOrder, EventPriority, EventStatus, EventBossLabel)
+
+local MiniHolder = make("ImageButton", {Name = "MiniHolder", Size = UDim2.fromOffset(46, 46), Position = UDim2.new(0, 18, 0.5, -23), BackgroundColor3 = Config.Background, BorderSizePixel = 0, Image = "rbxassetid://" .. Config.LogoID, ScaleType = Enum.ScaleType.Crop, Visible = false}, Gui)
+Corner(MiniHolder, 9)
+Stroke(MiniHolder, Config.MainColor, 2)
+
+task.delay(0.5, function()
+    pcall(function() MiniHolder.Image = ThumbImage end)
+end)
+
+local function setWindowVisible(visible)
+    Main.Visible = visible
+    MiniHolder.Visible = not visible
+end
+
+Minimize.MouseButton1Click:Connect(function() setWindowVisible(false) end)
+MiniHolder.MouseButton1Click:Connect(function() setWindowVisible(true) end)
+
+Close.MouseButton1Click:Connect(function()
+    for _, ctrl in ipairs(Controllers) do ctrl:Set(false) end
+    Gui:Destroy()
+end)
+
+local Dragging, DragStart, StartPosition = false, nil, nil
+
+Header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        Dragging, DragStart, StartPosition = true, input.Position, Main.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then Dragging = false end
+        end)
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if not Dragging then return end
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - DragStart
+        Main.Position = UDim2.new(StartPosition.X.Scale, StartPosition.X.Offset + delta.X, StartPosition.Y.Scale, StartPosition.Y.Offset + delta.Y)
+    end
+end)
+
+UIS.InputBegan:Connect(function(input, processed)
+    if processed or input.KeyCode ~= Enum.KeyCode.RightShift then return end
+    setWindowVisible(not Main.Visible)
+end)
+
+task.defer(function()
+    EventSpawnLabel.Text = findBossSpawn() and "BossSpawn: FOUND" or "BossSpawn: NOT FOUND"
+end)
+
+Tabs[1]:Select()
